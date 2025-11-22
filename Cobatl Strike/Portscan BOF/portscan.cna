@@ -1,0 +1,35 @@
+alias portscan_alt {
+	local('$handle $args');
+
+	# read in the right BOF file
+	$handle = openf(script_resource("bin/portscanner.bof.o"));
+	$data   = readb($handle, -1);
+	closef($handle);
+
+	# pack our arguments
+	$args   = bof_pack($1, "zz", $2, $3);
+
+	# announce what we're doing
+	btask($1, "Running portscan_alt BOF");
+	
+	# execute it.
+	beacon_inline_execute($1, $data, "go", $args);
+}
+
+alias pingscan {
+	local('$handle $args');
+
+	# read in the right BOF file
+	$handle = openf(script_resource("bin/pingscanner.bof.o"));
+	$data   = readb($handle, -1);
+	closef($handle);
+
+	# pack our arguments
+	$args   = bof_pack($1, "z", $2, $3);
+
+	# announce what we're doing
+	btask($1, "Running pingscan BOF");
+	
+	# execute it.
+	beacon_inline_execute($1, $data, "go", $args);
+}

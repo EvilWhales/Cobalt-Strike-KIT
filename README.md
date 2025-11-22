@@ -13,7 +13,7 @@
 </i>
 </p>
 
-Channel cfs (av/edr/xdr bypass) [Info](https://t.me/cryptfileservice) | follow us on [Twitter](https://twitter.com/EvilWhales) | Discord SERVER xCommunity CFS the [CFS - CRYPT FILE SERVICE](https://subscord.com/store/1429699829856075869/checkout/3V9ZXyco-ODEz) | Telegram [Contact](https://t.me/EvilWhales) Email [Contact](injectexpdev@proton.me)
+Channel cfs (av/edr/xdr bypass) [Info](https://t.me/cryptfileservice) | follow us on [Twitter](https://twitter.com/EvilWhales) | Discord SERVER xCommunity CFS the [CFS - CRYPT FILE SERVICE](https://subscord.com/store/1429699829856075869/checkout/3V9ZXyco-ODEz) | Telegram [Contact](https://t.me/EvilWhales) Email [Contact](injectexpdev@proton.me) CS Version [Download](https://t.me/+9Y9fYBu-vNhhM2E0)
 
 ### Legal Disclaimer:
 

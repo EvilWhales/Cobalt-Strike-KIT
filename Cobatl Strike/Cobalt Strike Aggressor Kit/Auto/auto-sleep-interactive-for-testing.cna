@@ -1,0 +1,10 @@
+#Author: @nickvourd
+
+on beacon_initial {
+    local('$bid');
+    $bid = $1;
+    
+    bsleep($1, 0);
+    
+    blog($1, "Setting sleep interval to 0");
+}

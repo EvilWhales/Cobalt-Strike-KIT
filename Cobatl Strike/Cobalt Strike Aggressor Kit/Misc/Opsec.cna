@@ -1,0 +1,176 @@
+# TTP: API-only
+%commands["cd"] = "true";
+%commands["cp"] = "true";
+%commands["connect"] = "true";
+%commands["download"] = "true";
+%commands["drives"] = "true";
+%commands["exit"] = "true";
+%commands["getprivs"] = "true";
+%commands["getuid"] = "true";
+%commands["jobkill"] = "true";
+%commands["kill"] = "true";
+%commands["link"] = "true";
+%commands["ls"] = "true";
+%commands["make_token"] = "true";
+%commands["mkdir"] = "true";
+%commands["mv"] = "true";
+%commands["ps"] = "true";
+%commands["pwd"] = "true";
+%commands["rev2self"] = "true";
+%commands["rm"] = "true";
+%commands["rportfwd"] = "true";
+%commands["rportfwd_local"] = "true";
+%commands["setenv"] = "true";
+%commands["socks"] = "true";
+%commands["steal_token"] = "true";
+%commands["token_store"] = "true";
+%commands["unlink"] = "true";
+%commands["upload"] = "true";
+%commands["inline-execute"] = "true";
+
+# TTP: House-keeping Commands
+%commands["argue"] = "true";
+%commands["beacon_config"] = "true";
+%commands["beacon_gate"] = "true";
+%commands["blockdlls"] = "true";
+%commands["cancel"] = "true";
+%commands["checkin"] = "true";
+%commands["clear"] = "true";
+%commands["data-store"] = "true";
+%commands["downloads"] = "true";
+%commands["file_browser"] = "true";
+%commands["help"] = "true";
+%commands["history"] = "true";
+%commands["jobs"] = "true";
+%commands["mode dns"] = "true";
+%commands["mode dns-txt"] = "true";
+%commands["mode dns6"] = "true";
+%commands["note"] = "true";
+%commands["powershell-import"] = "block";
+%commands["ppid"] = "true";
+%commands["process_browser"] = "block";
+%commands["sleep"] = "true";
+%commands["socks stop"] = "true";
+%commands["spawnto"] = "block";
+%commands["sycall-method"] = "block";
+%commands["variables"] = "true";
+%commands["windows_error_code"] = "true";
+
+# TTP: Inline Execute (BOF)
+%commands["elevate uac-token-duplication"] = "true";
+%commands["getsystem"] = "true";
+%commands["kerberos_ccache_use"] = "true";
+%commands["kerberos_ticket_purge"] = "true";
+%commands["kerberos_ticket_use"] = "true";
+%commands["net domain"] = "true";
+%commands["reg query"] = "true";
+%commands["reg queryv"] = "true";
+%commands["runasadmin uac-cmstplua"] = "true";
+%commands["runasadmin uac-token-duplication"] = "true";
+%commands["timestomp"] = "true";
+
+# TTP: Post-Exploitation Jobs (Fork&Run)
+%commands["clipboard"] = "block";
+%commands["dllload"] = "block";
+%commands["elevate svc-exe"] = "block";
+%commands["elevate uac-token-duplication"] = "block";
+%commands["getsystem"] = "block";
+%commands["jump psexec"] = "block";
+%commands["jump psexec64"] = "block";
+%commands["jump psexec_psh"] = "block";
+%commands["kerberos_ccache_use"] = "true";
+%commands["kerberos_ticket_purge"] = "true";
+%commands["kerberos_ticket_use"] = "true";
+%commands["net domain"] = "block";
+%commands["reg query"] = "true";
+%commands["reg queryv"] = "true";
+%commands["remote-exec psexec"] = "block";
+%commands["remote-exec wmi"] = "block";
+%commands["runasadmin uac-cmstplua"] = "block";
+%commands["runasadmin uac-token-duplication"] = "block";
+%commands["timestomp"] = "block";
+
+# TTP: Post-Exploitation Jobs (Fork&Run)
+# Fork&Run Only
+%commands["covertvpn"] = "block";
+%commands["execute-assembly"] = "block";
+%commands["powerpick"] = "block";
+
+# Target Explicit Process Only
+%commands["browserpivot"] = "block";
+%commands["psinject"] = "block";
+
+# Fork&Run or Target Explicit Process
+%commands["chromedump"] = "block";
+%commands["dcsync"] = "block";
+%commands["desktop"] = "block";
+%commands["hashdump"] = "block";
+%commands["keylogger"] = "block";
+%commands["logonpasswords"] = "block";
+%commands["mimikatz"] = "block";
+%commands["net"] = "block";
+%commands["portscan"] = "block";
+%commands["printscreen"] = "block";
+%commands["pth"] = "block";
+%commands["screenshot"] = "block";
+%commands["screenwatch"] = "block";
+%commands["ssh"] = "block";
+%commands["ssh-key"] = "block";
+
+# TTP: Process Execution
+%commands["execute"] = "block";
+%commands["run"] = "block";
+%commands["runas"] = "block";
+%commands["runum"] = "block";
+
+# Process Execution (cmd.exe)
+%commands["jump"] = "block";
+%commands["winrm"] = "block";
+%commands["jump winrm64"] = "block";
+%commands["powershell"] = "block";
+%commands["remote-exec winrm"] = "block";
+
+# Process Injection (Remote)
+%commands["dllinject"] = "block";
+%commands["dllload"] = "block";
+%commands["execute-dll"] = "block";
+%commands["inject"] = "block";
+%commands["shinject"] = "block";
+
+# TTP: Process Injection (Spawn&Inject)
+%commands["elevate uac-token-duplication"] = "block";
+%commands["execute-dll"] = "block";
+%commands["shspawn"] = "block";
+%commands["spawn"] = "block";
+%commands["spawnas"] = "block";
+%commands["spawnu"] = "block";
+%commands["spunnel"] = "block";
+%commands["spunnel_loca"] = "block";
+
+# TTP: Service Creation
+%commands["elevate svc-exe"] = "block";
+%commands["jump psexec"] = "block";
+%commands["jump psexec64"] = "block";
+%commands["jump psexec_psh"] = "block";
+%commands["remote-exec psexec"] = "block";
+
+# Configure blocked commands
+foreach $key (sorta(keys(%commands))) {
+    if (%commands[$key] eq "block") {
+        alias($key, {
+            berror($1, "This command's execution has been blocked. Remove the opsec profile to run the command.");
+        });
+    }
+}
+
+# Add opsec command to check current settings
+beacon_command_register("opsec", "Show the settings of the loaded opsec profile",
+    "Synopsis: opsec\n\n" .
+    "Displays a list of command settings for the currently loaded opsec profile.");
+
+alias("opsec", {
+    blog($1, "The current opsec profile has the following command settings:");
+    foreach $key (sorta(keys(%commands))) {
+        blog2($1, $key . " - " . %commands[$key]);
+    }
+});

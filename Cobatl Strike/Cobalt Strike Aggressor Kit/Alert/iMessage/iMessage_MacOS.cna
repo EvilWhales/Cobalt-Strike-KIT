@@ -1,0 +1,170 @@
+# -------------------------------------
+# Author: @nickvourd
+# iMessage Notification System for Cobalt Strike
+# -------------------------------------
+
+# iMessage recipients
+@imsg_recipients = @(
+    "+1123456789"#, # Add your team's phone numbers
+    #"+123456789",
+    #"+123456789"
+);
+
+$teamserver_hostname = "kalixxxx"; # Add your own teamserver name
+$active_users = "";
+
+# Emojis
+$im_beacon     = "💀";
+$im_beaconmsg  = "🟣";
+$im_connect    = "⚠️";
+$im_web_hit    = "🔔";
+$im_info       = "ℹ️";
+$im_message    = "💬";
+$im_keystrokes = "⌨️";
+$im_site       = "🛠️";
+$im_screenshot = "📸";
+
+# -------------------------
+# send_imessage 
+# -------------------------
+sub send_imessage {
+    local('$msg $recipient $script');
+
+    $msg = @_[0];
+
+    # Replace \n markers from CNA with REAL newlines for AppleScript
+    $msg = replace($msg, "\\n", "\n");
+
+    foreach $recipient (@imsg_recipients) {
+
+        $script =
+            "tell application \"Messages\"\n" .
+            " set theService to 1st service whose service type = iMessage\n" .
+            " set theBuddy to buddy \"" . $recipient . "\" of theService\n" .
+            " send \"" . $msg . "\" to theBuddy\n" .
+            "end tell\n";
+
+        @cmd = @("bash", "-c",
+            "osascript <<'EOF'\n" .
+            $script .
+            "EOF"
+        );
+
+        exec(@cmd);
+    }
+}
+
+# -------------------------
+# Helper: list active users
+# -------------------------
+sub csusersinfo {
+    foreach %csuser (users()) {
+        $active_users .= "- " . %csuser . "\\n";
+    }
+}
+
+# -------------------------
+# EVENT: New Beacon
+# -------------------------
+on beacon_initial {
+    $bd = beacon_data($1);
+
+    local('$message');
+    $message  = $im_beacon . " New Beacon on " . $teamserver_hostname . ". GameOn!\\n\\n";
+    $message .= $im_beaconmsg . " Initial beacon from " . $bd["user"] . "@" . $bd["host"] . " (" . $bd["computer"] . ")\\n\\n";
+    $message .= $im_info . " Beacon Details:\\n";
+    $message .= "External: "  . $bd["external"]  . "\\n";
+    $message .= "Internal: "  . $bd["internal"]  . "\\n";
+    $message .= "Listener: "  . $bd["listener"]  . "\\n";
+    $message .= "User: "      . $bd["user"]      . "\\n";
+    $message .= "Computer: "  . $bd["computer"]  . "\\n";
+    $message .= "Process: "   . $bd["process"]   . "\\n";
+    $message .= "Pid: "       . $bd["pid"]       . "\\n";
+    $message .= "Arch: "      . $bd["barch"]     . "\\n";
+
+    send_imessage($message);
+}
+
+# -------------------------
+# EVENT: Operator connected
+# -------------------------
+on event_join {
+    csusersinfo();
+
+    local('$message');
+    $message  = $im_connect . " " . $1 . " connected to " . $teamserver_hostname . "!\\n";
+    $message .= $im_info . " Active CS users:\\n" . $active_users;
+
+    send_imessage($message);
+    $active_users = "";
+}
+
+# -------------------------
+# EVENT: Operator disconnected
+# -------------------------
+on event_quit {
+    csusersinfo();
+
+    local('$message');
+    $message  = $im_connect . " " . $1 . " disconnected from " . $teamserver_hostname . "!\\n";
+    $message .= $im_info . " Active CS users:\\n" . $active_users;
+
+    send_imessage($message);
+    $active_users = "";
+}
+
+# -------------------------
+# EVENT: Public message
+# -------------------------
+on event_public {
+    local('$message');
+    $message  = $im_message . " Public message from: " . $1 . "\\n";
+    $message .= $im_info . " Message content:\\n" . $2;
+
+    send_imessage($message);
+}
+
+# -------------------------
+# EVENT: New site
+# -------------------------
+on event_newsite {
+    local('$message');
+    $message  = $im_site . " " . $1 . " created a new site on " . $teamserver_hostname . "!\\n";
+    $message .= $im_info . " Site details:\\n" . $2;
+
+    send_imessage($message);
+}
+
+# -------------------------
+# EVENT: Keystrokes
+# -------------------------
+on keystrokes {
+    local('$message');
+    $message = $im_keystrokes . " Keystrokes captured from " . $1["title"] . " (" . $1["user"] . ")!";
+
+    send_imessage($message);
+}
+
+# -------------------------
+# EVENT: Web hit
+# -------------------------
+on web_hit {
+    local('$message');
+    $message  = $im_web_hit . " New Web Hit!\\n";
+    $message .= $im_info . " From: " . $3 . "\\n";
+    $message .= "Request: " . $1 . " " . $2 . "\\n";
+    $message .= "Response: " . $5 . "\\n";
+    $message .= "User-Agent: " . $4 . "\\n";
+
+    send_imessage($message);
+}
+
+# -------------------------
+# EVENT: Screenshot
+# -------------------------
+on screenshots {
+    local('$message');
+    $message = $im_screenshot . " Screenshot captured: " . $1["title"] . " by " . $1["user"] . "!";
+
+    send_imessage($message);
+}

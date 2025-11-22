@@ -1,0 +1,40 @@
+#Author: @nickvourd
+# Function to make all tabs bold
+# This function is called on script load and periodically
+sub makeAllTabsBold {
+    local('$client $apptabs $i $applicationTab');
+    
+    # Import Java Font class
+    import java.awt.Font;
+    
+    # Get the Aggressor client object
+    $client = getAggressorClient();
+    
+    # Get all application tabs
+    $apptabs = [[$client tabs] apptabs];
+    
+    # Iterate through all tabs and make them bold
+    for ($i = 0; $i < [$apptabs size]; $i++) {
+        $applicationTab = [$apptabs get: $i];
+        
+        # Make font bold
+        $currentFont = [[$applicationTab B] getFont];
+        $boldFont = [new Font: [$currentFont getName], [Font BOLD], [$currentFont getSize]];
+        [[$applicationTab B] setFont: $boldFont];
+    }
+}
+
+# Execute once on startup
+on heartbeat_1s {
+    makeAllTabsBold();
+    # Remove the heartbeat_1s handler after first execution
+    clear("heartbeat_1s");
+}
+
+# Execute periodically to catch new tabs
+on heartbeat_10s {
+    makeAllTabsBold();
+}
+
+# Initial execution when script is loaded
+makeAllTabsBold();

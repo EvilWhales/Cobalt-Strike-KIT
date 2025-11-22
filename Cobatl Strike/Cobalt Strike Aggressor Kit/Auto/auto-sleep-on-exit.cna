@@ -1,0 +1,18 @@
+#Author: @nickvourd
+#Inspired by bluescreenofjeff
+
+$sleep_time = 600; #Change with your own value (Default: 10m)
+$jitter_percentage = 19; #Change with your own value
+
+# Event handler triggered when a user disconnects from the team server 
+on event_quit {
+   # Check if only one operator remains connected to the team server (Change this according to your team size and needs)
+   if (size(users()) == 1) {
+       foreach $beacon (beacons()) {
+           # Check if the beacon is not a pivot/proxy (pbid is empty)
+           if ($beacon['pbid'] eq "") {
+               bsleep($beacon['id'], $sleep_time, $jitter);
+           }
+       }
+   }
+}

@@ -1,0 +1,45 @@
+#Author: @nickvourd
+#Inspired by @octoberfest73
+alias locate {
+    local('@searchResults $searchTerm $resultCount $maxResults');
+    
+    # Set maximum results limit
+    $maxResults = 50;
+
+    if(size(@_) != 2) {
+        berror($1, "Error: No search term provided!");
+        berror($1, beacon_command_detail("locate"));
+        return;
+    }
+
+    $searchTerm = $2;
+    @searchResults = readAll(exec(@("locate", "-i", "--", $searchTerm)));
+    $resultCount = size(@searchResults);
+
+    if($resultCount == 0) {
+        blog($1, "\c4Unable to find any files with the keyword: \"$searchTerm\"\c0\n");
+        return;
+    }
+    
+    if($resultCount >= $maxResults) {
+        blog($1, "\c4Warning: Found $resultCount matches - output truncated!\c0");
+        blog($1, "\cCTip: Use a more specific search term to reduce results\c0\n");
+    }
+    else {
+        blog($1, "\c9Found $resultCount matches for \"$searchTerm\":\c0\n");
+        blog($1, "\c8==============================================\c0");
+        
+        foreach $result (@searchResults) {
+            blog($1, "\c6 $result\c0");
+        }
+        
+        blog($1, "\c8==============================================\c0\n");
+        blog($1, "\c9Search complete - $resultCount results displayed\c0\n");
+    }
+}
+
+beacon_command_register(
+    "locate",
+    "Linux locate command implementation",
+    "Usage: locate <keyword>"
+);

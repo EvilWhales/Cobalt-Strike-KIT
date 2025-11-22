@@ -1,0 +1,174 @@
+# BEACON_OUTPUT_PS
+#Cobalt Strike Process Tree Aggressor Script
+
+# Re-written to highlight certain processes by Skele.Tor
+
+set BEACON_OUTPUT_PS {
+    local('$bd $maxdepth');
+    $bd = bdata($1);
+
+    # Process names to be highlighted
+    @windows = @("explorer.exe", "winlogon.exe", "lsass.exe", "spoolsv.exe");
+    @security = @("lsaiso.exe", "MpDefenderCoreService.exe", "MsMpEng.exe", "NisSrv.exe", "MsSense.exe", "sense.exe", "Microsoft.Tri.Sensor.exe", "DefenderApiCli.exe", "MdeCli.exe", "MsSenseS.exe", "falcon-sensor.exe", "CSFalconService.exe", "CSFalconContainer.exe", "CSAgent.exe", "SentinelAgent.exe", "SentinelCtl.exe", "SentinelHelperService.exe", "SentinelStaticEngine.exe", "SentinelUI.exe", "LogCollectorService.exe", "EDRCore.exe", "SentinelServiceHost.exe", "ccSvcHst.exe", "nsservice.exe", "NortonSecurity.exe", "SMC.exe", "SepMasterService.exe", "Rtvscan.exe", "ccapp.exe", "vptray.exe", "DoScan.exe", "cb.exe", "CbDefense.exe", "RepMgr.exe", "CbDefense.exe", "Cb.exe", "CbBlockHost.exe", "CybereasonAgent.exe", "CybereasonRansomFree.exe", "SophosED.exe", "Sophos.exe", "SophosEndpointAgent.exe", "RedCloak.exe", "rcagent.exe", "RedCloakService.exe", "RedCloakAgent.exe", "RedCloakUpdate.exe", "SecureWorksAgent.exe", "swagent.exe", "RedCloakSensor.exe", "RCExecutor.exe", "RedCloakMonitor.exe", "DellEndpoint.exe", "DellAgent.exe", "DellTechHub.exe", "DellMgmtAgent.exe", "EncryptionConsole.exe", "DellSystemDetect.exe", "DellSECHost.exe", "DellSecuritySrv.exe", "DellDataProtection.exe", "DPService.exe", "DellCredentialVault.exe", "DDPEService.exe", "Sysmon64.exe", "Sysmon.exe", "splunkd.exe", "splunk.exe", "SplunkForwarder.exe", "splunk-powershell.exe", "splunk-monitornoaa.exe", "splunk-admon.exe", "splunk-netmon.exe", "splunk-regmon.exe", "splunk-winevtlog.exe", "splunk-winhostmon.exe", "splunk-winprintmon.exe", "splunk-perfmon.exe", "splunk-powershell.ps1", "splunk-pwsh.exe", "ekrn.exe", "egui.exe", "TaniumClient.exe", "TaniumEndpointIndex.exe", "elastic-endpoint.exe", "elastic-agent.exe", "avguard.exe", "avscan.exe", "avconfig.exe", "avgnt.exe", "avwebgrd.exe", "avcenter.exe", "AvastSvc.exe", "AvastUI.exe", "aswEngSrv.exe", "afwServ.exe", "AvastBrowser.exe", "ashDisp.exe", "aswToolsSvc.exe", "wazuh-agent.exe", "wazuh-agentd.exe", "wazuh-modulesd.exe", "wazuh-logcollector.exe", "wazuh-syscheckd.exe", "wazuh-execd.exe", "ossec-agent.exe", "wazuh-control.exe", "cortex.exe", "cortex_agent.exe", "CortexXDR.exe", "cortexd.exe", "XdrAgent.exe", "XdrAgentUI.exe", "XdrTrayIcon.exe", "PanGpAgent.exe", "PanGPS.exe", "CortexXDRService.exe", "TrapAgent.exe", "cyberarmor.exe", "PaloAltoNetworks.exe", "mfemms.exe", "mfeann.exe", "mfecore.exe", "mfeesp.exe", "mfehidin.exe", "mfemactl.exe", "TrellixService.exe", "TrellixAgent.exe", "FireEyeHX.exe", "TrellixHX.exe", "ir_agent.exe", "rapid7agent.exe", "insight_agent.exe", "r7_agent.exe", "r7endpoint.exe", "InsightAgent.exe", "ir_endpoint.exe", "QRadarClient.exe", "WinCollect.exe", "RemoteWinCollect.exe", "QRadarProxy.exe", "QRadarHostService.exe", "IBMQRadar.exe", "QRadarWindowsAgent.exe", "QRadarAppHost.exe", "QualysAgent.exe", "qualys-cloud-agent.exe", "QualysProxy.exe", "FortiEDR.exe", "FortiClient.exe", "fcappdb.exe", "fcdblog.exe", "FortiESNAC.exe", "FortiTray.exe", "avp.exe", "kavfs.exe", "klnagent.exe", "kavtray.exe", "sfc.exe", "ampservice.exe", "ciscoamp.exe", "SecureEndpoint.exe", "TmPfw.exe", "TmProxy.exe", "TmListen.exe", "NTRtScan.exe", "PccNTMon.exe", "DeepInstinct.exe", "DeepInstinctAgent.exe", "bdagent.exe", "bdredline.exe", "bdservicehost.exe", "checkpoint.exe", "ZoneAlarm.exe", "IDAConsole.exe", "xagt.exe", "helix.exe", "FireEyeService.exe");
+    
+    # @final_ps is the final array. It is built as we figure out all child-parent relationships
+    # @reverse_ps is used to append children starting with the lowest pid
+    # @temp_ps is a temp array
+
+    local('@ps @final_ps @reverse_ps @temp_ps');
+    local('$outps $temp $name $ppid $pid $arch $user $session');
+    local('$final_ps_size $temp_name');
+
+    #$outps .= "\cC[*]\o Process List with process highlighting\n";
+
+    $outps .= "\cC[*]\o Process List\n\n";
+    $outps .= "\cC[*]\o This Beacon PID:\c8 YELLOW\o (\c8". $bd['pid'] ."\o) \n";
+    $outps .= "\cC[*]\o Windows Processes:\c9 GREEN \o \n";
+    $outps .= "\cC[*]\o Security Products:\c4 RED \o \n\n";
+    $outps .= " PID   PPID  Name                                   Arch  Session     User\n";
+    $outps .= "\cE ---   ----  ----                                   ----  -------     ----\n";
+
+    foreach $temp (split("\n", ["$2" trim])) {
+        ($name, $ppid, $pid, $arch, $user, $session) = split("\t", $temp);
+        
+        $printed = 0;
+
+        # highlight current process in YELLOW
+        if ($pid == $bd['pid']) {
+            push(@ps, %(pid => $pid, ppid => $ppid, pid_formatted => "$[5]pid", ppid_formatted => "$[5]ppid", color => "\c8", name => $name, arch => "$[5]arch", session => "$[11]session", user => $user));
+        }
+
+        # highlight Windows Processes in GREEN
+        foreach $value (@windows){
+			if($name eq $value){
+				push(@ps, %(pid => $pid, ppid => $ppid, pid_formatted => "$[5]pid", ppid_formatted => "$[5]ppid", color => "\c9", name => $name, arch => "$[5]arch", session => "$[11]session", user => $user));
+                $printed++;
+				break;
+			}
+		}
+
+        # highlight security products in RED
+        foreach $value (@security){
+			if($name eq $value){
+				push(@ps, %(pid => $pid, ppid => $ppid, pid_formatted => "$[5]pid", ppid_formatted => "$[5]ppid", color => "\c4", name => $name, arch => "$[5]arch", session => "$[11]session", user => $user));
+                $printed++;
+				break;
+			}
+		}
+
+        if ($printed < 1) {
+            push(@ps, %(pid => $pid, ppid => $ppid, pid_formatted => "$[5]pid", ppid_formatted => "$[5]ppid", color => "", name => $name, arch => "$[5]arch", session => "$[11]session", user => $user));
+        }
+    }
+
+    # sort the processes please
+    sort({ return $1['pid'] <=> $2['pid']; }, @ps);
+
+    # get the @ps array in a reverse order for the ascending child sorting order
+    @reverse_ps = reverse(@ps);
+
+
+    # Find all orphan processes and add them to the final_ps. Those is the root of the process tree
+    sub buildOrphanage{
+        local('$counter4 $counter5 $orphan');
+        for ($counter4 = 0; $counter4 < size($1); $counter4++){
+            $orphan = true;
+
+            for ($counter5 = 0; $counter5 < size($1); $counter5++){
+                if ($1[$counter4]['ppid'] == $1[$counter5]['pid']){
+                    $orphan = false;
+                    break;
+                }
+            }
+
+            # PID zero - it's gotta be an orphan, poor kid
+            if ($1[$counter4]['pid'] == 0){
+                $orphan = true;
+            }
+
+
+            if ($orphan == true){
+                #set indentation and push to the @final_ps
+                $1[$counter4]['indent'] = "";
+                push($2, $1[$counter4]);
+            }
+        }
+    }
+
+    # finds an index of a given PID in the array
+    sub findArrayElement{
+        local('$index $value');
+        foreach $index => $value ($1){
+            if ($1[$index]['pid'] == $2){
+                return $index;
+            }
+        }
+        return $null;
+    }
+
+    # adds parent and  all of its children to a temp_ps which then being copied into a final_ps
+    sub addChildrenProcesses{
+        local ('$parent $potentialChild $arrayIndex');
+        # for every parent in the current final_ps
+        foreach $parent ($2){
+
+            # check if that parent is already there
+            $arrayIndex = findArrayElement($1, $parent['pid']);
+
+            # if the parent is not there - add it first
+            if ($arrayIndex == $null){
+                #add the parent first
+                push($1, $parent);
+
+                # update arrayIndex for children to follow
+                $arrayIndex = size($1) - 1;
+            }
+
+            #now find all the children of the process and insert those right under the parent
+            foreach $potentialChild ($3){
+                if ($potentialChild['ppid'] ==  $parent['pid'] &&  $potentialChild['ppid'] != $potentialChild['pid']){
+                    $potentialChild['indent'] = $parent['indent'] . "    ";
+                    add($1, $potentialChild, $arrayIndex + 1);
+                }
+            }
+        }
+        # update @final_ps
+        $2 = copy($1);
+        # clear temp_ps
+        clear($1);
+    }
+
+    buildOrphanage(@ps, @final_ps);
+
+    # until @final_ps is not the same size as @ps, keep adding children
+    # WARNING: if something doesn't work correctly, this will create an infinite loop with Cobalt Strike hanging itself
+    # A max depth of 100 has been set to stop this condition
+    while (size(@final_ps) < size(@ps)){
+        $maxdepth += 1;
+        addChildrenProcesses(@temp_ps, @final_ps, @reverse_ps);
+        $final_ps_size = size(@final_ps);
+        # Prevent infinate loop
+        if ($maxdepth > 100) {
+            break;
+        }
+    }
+
+    # in case of an infinite loop, this can be used to debug
+    # for ($counter1 = 0; $counter1 < 10; $counter1++){
+    # 	addChildrenProcesses(@temp_ps, @final_ps, @reverse_ps);
+    # }
+
+    # append to our outstring
+    foreach $temp (@final_ps) {
+        # for some reason this was the best way to format that string
+        $temp_name = $temp['indent'] . $temp['name'];
+
+        $outps .= "$temp['color'] $temp['pid_formatted'] $temp['ppid_formatted'] $[38]temp_name $temp['arch'] $temp['session'] $temp['user']\o\n";
+    }
+
+    # clear these arrays since for some reason they persist after each aggressor script run
+    clear(@final_ps);
+    clear(@ps);
+
+    return $outps;
+}

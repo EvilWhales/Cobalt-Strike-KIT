@@ -1,0 +1,14 @@
+#Author: @nickvourd
+on beacon_initial {
+    local('$bid');
+    $bid = $1;
+
+    #Change your sleep time according to your preference 
+    #bsleep Arguments:
+    #$1 - the ID for the beacon. This may be an array or a single ID.
+    #$2 - the number of seconds between beacons.
+    #$3 - the jitter factor [0-99]
+    bsleep($1, 130, 10);
+    
+    blog($1, "Setting sleep interval to 2 minutes 10 seconds with 10% jitter");
+}

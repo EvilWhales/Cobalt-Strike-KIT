@@ -1,0 +1,90 @@
+# Author: @nickvourd.
+# Spacial thanks to @sec_groundzero.
+# Based on the work of @bluescreenofjeff.
+
+$teams_webhookURL = 'https://teams.com/api/webhooks/XXXX'; # Change this with your Teams webhook url
+$teamserver_hostname = 'XXXXXX'; # Change this with your hostname
+$active_users = "";
+
+# csusersinfo function
+sub csusersinfo {
+	foreach %csuser (users()) {
+		$active_users .= "- " . %csuser . "\n\n";
+	}
+}	
+
+# New Beacon Alert
+on beacon_initial {
+    $user = beacon_data($1)["user"];
+    $computer = beacon_data($1)["computer"];
+    $host = beacon_data($1)["host"];
+    $arch = beacon_data($1)["barch"];
+    $external = beacon_data($1)["external"];
+    $internal = beacon_data($1)["internal"];
+    $listener = beacon_data($1)["listener"];
+    $process = beacon_data($1)["process"];
+    $pid = beacon_data($1)["pid"];
+    
+    @curl_command = @('curl','-X','POST','-H', 'Content-Type: application/json', '-d', '{"text": "New Beacon on '.$teamserver_hostname.'. GameOn!\n\nInitial beacon from '.$user.'@'.$host.' ('. $computer .')\n\n--Beacon Details--\n\nExternal: '.$external.'\n\nInternal: '.$internal.'\n\nListener: '.$listener.'\n\nUser: '.$user.'\n\nComputer: '.$computer.'\n\nProccess: '.$process.'\n\nPid: '.$pid.'\n\nArch: '.$arch.'"}', $teams_webhookURL);
+    exec(@curl_command);
+}
+
+# New CS Client Connected Alert
+on event_join {
+    # Call function named csusersinfo
+	csusersinfo();
+
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"text": "'.$1.' has connected to '.$teamserver_hostname.'!\n\nActive CS users:\n\n'.$active_users.'"}', $teams_webhookURL);
+    exec(@curl_command);
+
+    # Clean the variable
+	$active_users = "";
+}
+
+# New CS Client Disconnected Alert
+on event_quit {
+    # Call function named csusersinfo
+	csusersinfo();
+
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"text": "'.$1.' has disconnected to '.$teamserver_hostname.'!\n\nActive CS users:\n\n'.$active_users.'"}', $teams_webhookURL);
+    exec(@curl_command);
+
+    # Clean the variable
+    $active_users = "";
+}
+
+# CS Client Public Message Event Alert
+on event_public {
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"text": "New public message from: '.$1.'\n\nMessage content:\n\n '.$2.'"}', $teams_webhookURL);
+    exec(@curl_command);
+}
+
+# New Site Event Log Alert
+on event_newsite {
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"text": "'.$1.' set up a new site on '.$teamserver_hostname.'!\n\nNew site details:\n\n'.$2.'"}', $teams_webhookURL);
+    exec(@curl_command);
+}
+
+# New Keystrokes Alert
+on keystrokes {
+    $keyuser = $1['user'];
+    $keytitle = $1['title'];
+    
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"text": "Received new Keystrokes from '.$keytitle.' by '.$keyuser.'!"}', $teams_webhookURL);
+    exec(@curl_command);
+}
+
+# New Web Hit Alert
+on web_hit {
+    @curl_command = @('curl','-X','POST', '-H', 'Content-Type: application/json', '-d', '{"text": "New Web hit!\n\n--Web Log Details--\n\nFrom: '.$3.'\n\nRequest: '.$1.' '.$2.'\n\nResponse: '.$5.'\n\nUser-Agent: '.$4.'"}',$teams_webhookURL);
+    exec(@curl_command);
+}
+
+# New Screenshot Alert
+on screenshots {
+    $screenuser = $1['user'];
+    $screentitle = $1['title'];
+    
+    @curl_command = @('curl', '-X', 'POST', '-H', 'Content-Type: application/json', '-d', '{"text": "Received new screenshot of '.$screentitle.' by '.$screenuser.'!"}', $teams_webhookURL);
+    exec(@curl_command);
+}

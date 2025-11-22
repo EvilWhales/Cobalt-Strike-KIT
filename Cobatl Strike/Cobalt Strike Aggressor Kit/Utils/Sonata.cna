@@ -1,0 +1,93 @@
+# Function to display banner
+sub show_banner {
+    local('$bid');
+    $bid = $1;
+    
+    blog($bid, "");
+    blog($bid, "███████╗ ██████╗ ███╗   ██╗ █████╗ ████████╗ █████╗     ");
+    blog($bid, "██╔════╝██╔═══██╗████╗  ██║██╔══██╗╚══██╔══╝██╔══██╗    ");
+    blog($bid, "███████╗██║   ██║██╔██╗ ██║███████║   ██║   ███████║    ");
+    blog($bid, "╚════██║██║   ██║██║╚██╗██║██╔══██║   ██║   ██╔══██║    ");
+    blog($bid, "███████║╚██████╔╝██║ ╚████║██║  ██║   ██║   ██║  ██║    ");
+    blog($bid, "╚══════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝    ");
+    blog($bid, "Version: 1.1");
+    blog($bid, "Created with <3 by @nickvourd");
+    blog($bid, "");
+}
+
+# Register the Sonata command
+beacon_command_register(
+    "Sonata",
+    "Hash calculator for local files and strings",
+    "Usage: Sonata -f/--file <local_filepath> OR Sonata -s/--string <string>"
+);
+
+# Function to calculate local file hashes
+sub hashfile {
+    local('$f $filepath $algo $d $digest $hash');
+    $algo = $1;
+    $filepath = $2;
+    $f = openf($filepath);
+    $d = readb($f, -1);
+    closef($f);
+    $md = [java.security.MessageDigest getInstance: $algo];
+    $digest = [$md digest: $d];
+    $hash = transform($digest, "hex");
+    return lc($hash);
+}
+
+# Function to calculate string hashes
+sub hashstring {
+    local('$string $algo $digest $hash');
+    $algo = $1;
+    $string = [$2 getBytes: "UTF-8"];
+    $md = [java.security.MessageDigest getInstance: $algo];
+    $digest = [$md digest: $string];
+    $hash = transform($digest, "hex");
+    return lc($hash);
+}
+
+# Main command handler
+alias Sonata {
+    local('$args $type $input');
+    
+    # Show the banner first
+    show_banner($1);
+    
+    $args = substr($0, 7); # Remove "Sonata " from beginning
+    
+    # Parse arguments
+    if ($args ismatch '-f (.+)' || $args ismatch '--file (.+)') {
+        $type = "file";
+        $input = matched()[0];
+    }
+    else if ($args ismatch '-s (.+)' || $args ismatch '--string (.+)') {
+        $type = "string";
+        $input = matched()[0];
+    }
+    else {
+        berror($1, "Usage: Sonata -f/--file <filepath> OR Sonata -s/--string <string>");
+        return;
+    }
+    
+    # Calculate and display hashes
+    if ($type eq "file") {
+        if (!-exists $input) {
+            berror($1, "File not found: $input");
+            return;
+        }
+        
+        blog($1, "File: $input");
+        blog($1, "MD5    : " . hashfile("MD5", $input));
+        blog($1, "SHA1   : " . hashfile("SHA1", $input));
+        blog($1, "SHA-256: " . hashfile("SHA-256", $input));
+        blog($1, "SHA-512: " . hashfile("SHA-512", $input));
+    }
+    else {
+        blog($1, "String: $input");
+        blog($1, "MD5    : " . hashstring("MD5", $input));
+        blog($1, "SHA1   : " . hashstring("SHA1", $input));
+        blog($1, "SHA-256: " . hashstring("SHA-256", $input));
+        blog($1, "SHA-512: " . hashstring("SHA-512", $input));
+    }
+}

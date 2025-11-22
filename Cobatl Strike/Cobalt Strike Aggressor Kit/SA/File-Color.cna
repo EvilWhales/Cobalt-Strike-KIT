@@ -1,0 +1,203 @@
+# Output for the ls command
+# Cobalt Strike file list Aggressor Script
+# Re-written to highlight file types by Skele.Tor
+
+set BEACON_OUTPUT_LS {
+    local('$out @results $cwd $entry $type $size $name');
+    @results = split("\n", ["$2" trim]);
+
+    # File type categories to be highlighted
+    @executables = @(
+        ".exe", ".bat", ".bin", ".com", ".wsf", ".cmd", ".scr", ".msp", 
+        ".msc", ".gadget", ".inf", ".ins", ".inx", ".isu", ".job", ".paf", ".pif", 
+        ".reg", ".rgs", ".sct", ".shb", ".u3p", ".workflow", ".EXE"
+    );
+
+    @system_related = @(
+        ".dll", ".cab", ".cfg", ".cpl", ".cur", ".dmp", ".drv", ".ico", ".ini", 
+        ".lnk", ".msi", ".sys", ".tmp", ".config", ".cache", ".cat", ".ctt", ".cty", 
+        ".gpd", ".pnf", ".sdb", ".shd", ".shs", ".theme", ".wpx", ".lock", ".key", 
+        ".acm", ".adt", ".adv", ".ani", ".asp", ".ocx", ".tsp", ".url", ".manifest",
+        ".DLL", ".efi", ".mof"
+    );
+
+    @database = @(
+        ".csv", ".dat", ".xml", ".log", ".dbf", ".db", ".sql", ".bak", ".tsv", 
+        ".mysql", ".pgsql", ".mdb", ".accdb", ".dbx", ".db3", ".s3db", ".sqlite", 
+        ".sqlite3", ".nsf", ".ntf", ".myd", ".frm", ".ibd", ".ndf", ".ldf", ".sdf", 
+        ".mdf", ".dbc", ".dcb", ".mwb", ".dbk", ".pdb", ".lgb", ".jsonl", ".dtd"
+    );
+
+    @txt = @(
+        ".txt", ".doc", ".docx", ".pdf", ".odt", ".rtf", ".tex", ".xls", ".xlsx", 
+        ".xlsm", ".xltx", ".xltm", ".xlsb", ".xll", ".wll", ".ppt", ".pptx", ".pptm", 
+        ".potx", ".potm", ".ppsx", ".ppsm", ".dot", ".dotx", ".dotm", ".docm", ".ods", 
+        ".odp", ".ott", ".odg", ".epub", ".mobi", ".xps", ".djvu", ".md", ".rst", 
+        ".adoc", ".wpd", ".wps", ".msg", ".eml", ".emlx", ".mbox", ".oft", ".pages", 
+        ".wks", ".wk1", ".wq1", ".lwp", ".jtd", ".jtt", ".hwp", ".602", ".sdw", 
+        ".stw", ".sxw", ".odm", ".idml", ".TXT", ".7z", ".rar", ".zip"
+    );
+
+    @program = @(
+        ".c", ".cpp", ".cc", ".cxx", ".h", ".hpp", ".hxx", ".cs", ".csx", ".fs", 
+        ".fsx", ".go", ".mod", ".java", ".jar", ".class", ".jsp", ".jspx", ".js", 
+        ".jsx", ".mjs", ".ts", ".tsx", ".php", ".phtml", ".php3", ".php4", ".php5", 
+        ".py", ".pyc", ".pyd", ".pyo", ".pyw", ".ipynb", ".rb", ".rbw", ".rake", 
+        ".gemspec", ".rs", ".rlib", ".swift", ".xcodeproj", ".ps1", ".psm1", ".psd1", 
+        ".ps1xml", ".sh", ".bash", ".zsh", ".fish", ".pl", ".pm", ".t", ".pod", ".lua", 
+        ".luac", ".kt", ".kts", ".scala", ".sc", ".elm", ".ex", ".exs", ".r", ".rmd", 
+        ".hta", ".vbs", ".vba", ".bas", ".asm", ".s", ".nasm", ".d", ".di", ".erl", 
+        ".hrl", ".cls", ".apex", ".page", ".component", ".m", ".mm", ".html", ".htm", 
+        ".xhtml", ".shtml", ".css", ".scss", ".sass", ".less", ".groovy", ".gvy", ".gy", 
+        ".gsh", ".dart", ".coffee", ".litcoffee", ".f", ".f90", ".f95", ".f03", ".ml", 
+        ".mli", ".mll", ".mly", ".hs", ".lhs", ".hsc", ".cmake", ".clj", ".cljs", 
+        ".cljc", ".edn", ".nim", ".nims", ".v", ".vh", ".sv", ".svh", ".tcl", ".ocaml", 
+        ".sml", ".thy", ".coq", ".sol", ".wat", ".wast", ".proto", ".peg", ".zig", 
+        ".mips", ".arm", ".adb", ".ada", ".p", ".pas", ".pp", ".inc"
+    );
+
+    @media = @(
+        ".mp3", ".mp4", ".wav", ".aac", ".wma", ".ogg", ".m4a", ".flac", ".m4v", ".mov",
+        ".avi", ".wmv", ".flv", ".webm", ".mkv", ".3gp", ".gif", ".png", ".jpg", ".jpeg",
+        ".bmp", ".tiff", ".svg", ".raw", ".psd", ".ai", ".eps", ".ico", ".webp", ".heic",
+        ".mp2", ".m4b", ".m4p", ".mpg", ".mpeg", ".3g2", ".h264", ".rm", ".swf", ".vob",
+        ".wmv", ".avif", ".tif", ".cr2", ".nef", ".arw", ".dng", ".jpe", ".jfif"
+    );
+
+    $cwd = left(shift(@results), -1);    # First entry is the current folder
+
+    # Parse/process results
+    foreach $entry (@results) {
+        ($type, $size, $modified, $name) = split("\t", $entry);
+        if ($type eq "F") {
+            $entry = %(
+                type => "fil", 
+                size => format_size($size), 
+                modified => $modified, 
+                name => $name
+            );
+        }
+        else if ($type eq "D" && $name ne "." && $name ne "..") {
+            $entry = %(
+                type => "dir", 
+                size => "", 
+                modified => $modified, 
+                name => $name
+            );
+        }
+        else {
+            remove();
+        }
+    }
+
+    # Sort in alpha order with dir listings on top
+    sort({ return ($1['type'] . lc($1['name'])) cmp ($2['type'] . lc($2['name'])); }, @results);
+
+    # Header section
+    $out .= "\cC[*]\o Listing: $cwd $+ \n\n";
+    $out .= "\cC[*]\o Executable files listed in\c9 GREEN \o \n";
+    $out .= "\cC[*]\o System-Related files listed in\cD PURPLE \o \n";
+    $out .= "\cC[*]\o Database files listed in\c8 YELLOW \o \n";
+    $out .= "\cC[*]\o Office related files listed in\c4 RED \o \n";
+    $out .= "\cC[*]\o Source Code files listed in\cB CYAN \o \n";
+    $out .= "\cC[*]\o Media files listed in\c7 ORANGE \o \n";
+    $out .= "\cC[*]\o Directories listed in\cC BLUE \o \n\n";
+    $out .= " Size     Type    Last Modified         Name\n";   
+    $out .= "\cE ----     ----    -------------         ----\n";
+
+    # Process each entry
+    foreach $entry (@results) {
+        ($type, $size, $modified, $name) = values($entry, @('type', 'size', 'modified', 'name'));
+
+        $extension = "";
+
+        # Grab file extension
+        if ($type eq "fil") {
+            for ($here = strlen($name); $here > 0; $here--) {
+                if (substr($name, $here, ($here + 1)) eq ".") {
+                    $extension = substr($name, $here);
+                    break;
+                }
+            }
+        }
+        
+        $printed = 0;  # Track if file has been printed
+        
+        # Highlight directories BLUE
+        if ($type eq "dir") {
+            $out .= "\cC $[8]size $[7]type $[21]modified $name $+ \n";
+        }
+        else {
+            # Highlight executable files LIGHT GREEN
+            foreach $value (@executables) {
+                if ($extension eq $value) {
+                    $out .= "\c9 $[8]size $[7]type $[21]modified $name $+ \n";
+                    $printed++;
+                    break;
+                }
+            }
+
+            # Highlight system-related files PURPLE
+            if ($printed < 1) {
+                foreach $value (@system_related) {
+                    if ($extension eq $value) {
+                        $out .= "\cD $[8]size $[7]type $[21]modified $name $+ \n";
+                        $printed++;
+                        break;
+                    }
+                }
+            }
+
+            # Highlight database files YELLOW
+            if ($printed < 1) {
+                foreach $value (@database) {
+                    if ($extension eq $value) {
+                        $out .= "\c8 $[8]size $[7]type $[21]modified $name $+ \n";
+                        $printed++;
+                        break;
+                    }
+                }
+            }
+
+            # Highlight word processor and txt files RED
+            if ($printed < 1) {
+                foreach $value (@txt) {
+                    if ($extension eq $value) {
+                        $out .= "\c4 $[8]size $[7]type $[21]modified $name $+ \n";
+                        $printed++;
+                        break;
+                    }
+                }
+            }
+
+            # Highlight program files CYAN
+            if ($printed < 1) {
+                foreach $value (@program) {
+                    if ($extension eq $value) {
+                        $out .= "\cB $[8]size $[7]type $[21]modified $name $+ \n";
+                        $printed++;
+                        break;
+                    }
+                }
+            }
+
+            # Highlight media files ORANGE
+            if ($printed < 1) {
+                foreach $value (@media) {
+                    if ($extension eq $value) {
+                        $out .= "\c7 $[8]size $[7]type $[21]modified $name $+ \n";
+                        $printed++;
+                        break;
+                    }
+                }
+            }
+
+            # Default formatting for unmatched files
+            if ($printed < 1) {
+                $out .= " $[8]size $[7]type $[21]modified $name $+ \n";
+            }
+        }
+    }
+
+    return $out;
+}

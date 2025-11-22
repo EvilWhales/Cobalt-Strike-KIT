@@ -1,0 +1,172 @@
+#Author: @nickvourd
+#Inspired by https://github.com/mgeeky/cobalt-arsenal of @mariuszbit
+# Format string for beacon tab names - supports placeholders like <user>, <computer>, etc.
+$beacon_tab_name_format = "<user>@<computer> (<pid>)";
+
+# Execute once on startup using heartbeat_1s
+# This ensures immediate execution when the script is loaded
+on heartbeat_1s {
+    # Check if format string is null or empty
+    if($beacon_tab_name_format is $null || strlen($beacon_tab_name_format) == 0) {
+        return;
+    }
+    renameBeaconTabs();
+    makeBoldTabs();
+    colorBeaconTabs();
+    # Remove the heartbeat_1s handler after first execution to prevent unnecessary calls
+    clear("heartbeat_1s");
+}
+
+# Execute periodically every 10 seconds to update tab names
+# This handles new beacons and any changes to existing ones
+on heartbeat_10s {
+    # Check if format string is null or empty
+    if($beacon_tab_name_format is $null || strlen($beacon_tab_name_format) == 0) {
+        return;
+    }
+    renameBeaconTabs();
+    makeBoldTabs();
+    colorBeaconTabs();
+}
+
+# Function to color all beacon tabs
+sub colorBeaconTabs {
+    local('$bid');
+    foreach $bid (beacon_ids()) {
+        colorBeaconTab($bid);
+    }
+}
+
+
+# Function to color a single beacon tab based on admin status
+sub colorBeaconTab {
+    local('$client $apptabs $i $applicationTab');
+    $bid = $1;
+    
+    # Import Java Color class
+    import java.awt.Color;
+    
+    # Get the Aggressor client object
+    $client = getAggressorClient();
+    
+    # Get all application tabs
+    $apptabs = [[$client tabs] apptabs];
+    
+    # Find and color the matching beacon tab
+    for ($i = 0; $i < [$apptabs size]; $i++) {
+        $applicationTab = [$apptabs get: $i];
+        if ([$applicationTab A] eq $bid) {
+            if (-isadmin $bid) {
+                # Admin user - Red
+                [[$applicationTab B] setForeground: [Color RED]];
+            }
+            else {
+                # Regular user - Green
+                [[$applicationTab B] setForeground: [Color GREEN]];
+            }
+        }
+    }
+}
+
+# Function to make beacon tabs bold
+sub makeBoldTabs {
+    local('$bid');
+    foreach $bid (beacon_ids()) {
+        makeBoldTab($bid);
+    }
+}
+
+# Function to make a single beacon tab bold
+sub makeBoldTab {
+    local('$client $apptabs $i $applicationTab');
+    $bid = $1;
+    
+    # Import Java Font class
+    import java.awt.Font;
+    
+    # Get the Aggressor client object
+    $client = getAggressorClient();
+    
+    # Get all application tabs
+    $apptabs = [[$client tabs] apptabs];
+    
+    # Find and bold the matching beacon tab
+    for ($i = 0; $i < [$apptabs size]; $i++) {
+        $applicationTab = [$apptabs get: $i];
+        if ([$applicationTab A] eq $bid) {
+            # Make font bold
+            $currentFont = [[$applicationTab B] getFont];
+            $boldFont = [new Font: [$currentFont getName], [Font BOLD], [$currentFont getSize]];
+            [[$applicationTab B] setFont: $boldFont];
+        }
+    }
+}
+
+# Function to iterate through all beacon IDs and rename their tabs
+sub renameBeaconTabs {
+    local('$bid');
+    foreach $bid (beacon_ids()) {
+        renameBeaconTab($bid);
+    }
+}
+
+# Function to rename a single beacon tab based on the format string
+sub renameBeaconTab {
+    # Declare local variables to avoid namespace pollution
+    local('$client $srctabname $i $dsttabname $apptabs $applicationTab');
+    
+    # Check if format string is null or empty
+    if($beacon_tab_name_format is $null || strlen($beacon_tab_name_format) == 0) {
+        return;
+    }
+    
+    # Get the beacon ID passed as argument
+    $bid = $1;
+    
+    # Get the Aggressor client object
+    $client = getAggressorClient();
+    
+    # Get all application tabs
+    $apptabs = [[$client tabs] apptabs];
+    
+    # Construct the source (current) tab name using host and PID
+    $srctabname = "Beacon " . beacon_info($bid, 'host') . "@" . beacon_info($bid, 'pid');
+    $srctabname = [$srctabname trim];
+    
+    # Iterate through all tabs
+    for ( $i = 0; $i < [$apptabs size] ; $i++) {
+        $applicationTab = [$apptabs get: $i];
+        
+        # Check if this tab corresponds to our beacon ID
+        if ([$applicationTab A] eq $bid) {
+            # Get current tab name
+            $currtabname = [[[$applicationTab B] getText] trim];
+            
+            # Only rename if the current name matches our expected source name
+            if ($currtabname eq $srctabname) {
+                # Start with the format string
+                $dsttabname = $beacon_tab_name_format;
+                
+                # Iterate through all beacons
+                foreach $beacon (beacons()) {
+                    # Find matching beacon ID
+                    if ($beacon['id'] eq $bid) {
+                        # Replace all placeholders with actual values
+                        foreach $k => $v ($beacon) {
+                            $dsttabname = replace($dsttabname, '<' . $k . '>', $v);
+                        }
+                    }
+                }
+                
+                # Set the new tab name (with padding spaces)
+                # Note: setField() is avoided due to known issues with tab title updates
+                [[$applicationTab B] setText: $dsttabname . "   "];
+            } 
+        }
+    }
+}
+
+# Initial execution when script is loaded
+renameBeaconTabs();
+makeBoldTabs();
+colorBeaconTabs();

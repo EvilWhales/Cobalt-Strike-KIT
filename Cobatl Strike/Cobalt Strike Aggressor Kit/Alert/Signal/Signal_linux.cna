@@ -1,0 +1,200 @@
+# -------------------------------------
+# Author: @nickvourd
+# Signal Notification System for Cobalt Strike
+# -------------------------------------
+
+# -------------------------
+# CONFIG
+# -------------------------
+
+# Signal sender number (registered in docker)
+$signal_number = "+1123456789"; # Add your phone number
+
+# Signal REST API endpoint
+$signal_api_url = "http://127.0.0.1:8080/v2/send";
+
+# Recipients (ARRAY — required even for 1)
+@signal_recipients = @("+1123456789", "+1123456789"); # Add your teammates' phone numbers
+
+# Teamserver hostname
+$teamserver_hostname = "kalixxxx"; # Add your teamserver name
+
+# Internal variable
+$active_users = "";
+
+# Emojis
+$sg_beacon     = "💀";
+$sg_beaconmsg  = "🟣";
+$sg_connect    = "⚠️";
+$sg_web_hit    = "🔔";
+$sg_info       = "ℹ️";
+$sg_message    = "💬";
+$sg_keystrokes = "⌨️";
+$sg_site       = "🛠️";
+$sg_screenshot = "📸";
+
+# -------------------------
+# HELPER: send Signal message
+# -------------------------
+sub send_signal {
+    local('$msg $json $cmd $recipient');
+
+    $msg = @_[0];
+
+    foreach $recipient (@signal_recipients) {
+
+        # Escape dangerous JSON chars
+        $msg_clean = replace($msg, "\"", "\\\"");
+        $msg_clean = replace($msg_clean, "\n", "\\n");
+
+        # Build JSON manually
+        $json = "{";
+        $json .= "\"number\":\"" . $signal_number . "\",";
+        $json .= "\"recipients\":[\"" . $recipient . "\"],";
+        $json .= "\"message\":\"" . $msg_clean . "\"";
+        $json .= "}";
+
+        @cmd = @(
+            "curl", "-s", "-X", "POST",
+            "-H", "Content-Type: application/json",
+            "-d", $json,
+            $signal_api_url
+        );
+
+        exec(@cmd);
+    }
+}
+
+# -------------------------
+# Helper function: list active CS users
+# -------------------------
+sub csusersinfo {
+    foreach %csuser (users()) {
+        $active_users .= "- " . %csuser . "\\n";
+    }
+}
+
+# -------------------------
+# EVENT: New Beacon
+# -------------------------
+on beacon_initial {
+    $bd = beacon_data($1);
+
+    $user     = $bd["user"];
+    $computer = $bd["computer"];
+    $host     = $bd["host"];
+    $arch     = $bd["barch"];
+    $external = $bd["external"];
+    $internal = $bd["internal"];
+    $listener = $bd["listener"];
+    $process  = $bd["process"];
+    $pid      = $bd["pid"];
+
+    local('$message');
+    $message  = $sg_beacon . " New Beacon on " . $teamserver_hostname . ". GameOn!\\n\\n";
+    $message .= $sg_beaconmsg . " Initial beacon from " . $user . "@" . $host . " (" . $computer . ")\\n\\n";
+    $message .= $sg_info . " Beacon Details:\\n\\n";
+    $message .= "External: " . $external . "\\n";
+    $message .= "Internal: " . $internal . "\\n";
+    $message .= "Listener: " . $listener . "\\n";
+    $message .= "User: " . $user . "\\n";
+    $message .= "Computer: " . $computer . "\\n";
+    $message .= "Process: " . $process . "\\n";
+    $message .= "Pid: " . $pid . "\\n";
+    $message .= "Arch: " . $arch . "\\n";
+
+    send_signal($message);
+}
+
+# -------------------------
+# EVENT: Operator connected
+# -------------------------
+on event_join {
+    csusersinfo();
+
+    local('$message');
+    $message  = $sg_connect . " " . $1 . " has connected to " . $teamserver_hostname . "!\\n";
+    $message .= $sg_info . " Active CS users:\\n" . $active_users;
+
+    send_signal($message);
+
+    $active_users = "";
+}
+
+# -------------------------
+# EVENT: Operator disconnected
+# -------------------------
+on event_quit {
+    csusersinfo();
+
+    local('$message');
+    $message  = $sg_connect . " " . $1 . " has disconnected from " . $teamserver_hostname . "!\\n";
+    $message .= $sg_info . " Active CS users:\\n\\n" . $active_users;
+
+    send_signal($message);
+
+    $active_users = "";
+}
+
+# -------------------------
+# EVENT: Public messages
+# -------------------------
+on event_public {
+    local('$message');
+    $message  = $sg_message . " New public message from: " . $1 . "\\n";
+    $message .= $sg_info . " Message content:\\n" . $2;
+
+    send_signal($message);
+}
+
+# -------------------------
+# EVENT: New site event
+# -------------------------
+on event_newsite {
+    local('$message');
+    $message  = $sg_site . " " . $1 . " set up a new site on " . $teamserver_hostname . "!\\n";
+    $message .= $sg_info . " New site details:\\n" . $2;
+
+    send_signal($message);
+}
+
+# -------------------------
+# EVENT: Keystrokes
+# -------------------------
+on keystrokes {
+    $keyuser = $1["user"];
+    $keytitle = $1["title"];
+
+    local('$message');
+    $message  = $sg_keystrokes . " Received new Keystrokes from " . $keytitle . " by " . $keyuser . "!";
+
+    send_signal($message);
+}
+
+# -------------------------
+# EVENT: Web Hit
+# -------------------------
+on web_hit {
+    local('$message');
+    $message  = $sg_web_hit . " New Web hit!\\n";
+    $message .= $sg_info . " Web Log Details:\\n";
+    $message .= "From: " . $3 . "\\n";
+    $message .= "Request: " . $1 . " " . $2 . "\\n";
+    $message .= "Response: " . $5 . "\\n";
+    $message .= "User-Agent: " . $4;
+
+    send_signal($message);
+}
+
+# -------------------------
+# EVENT: Screenshot
+# -------------------------
+on screenshots {
+    $screenuser  = $1["user"];
+    $screentitle = $1["title"];
+
+    local('$message');
+    $message = $sg_screenshot . " Received new screenshot of " . $screentitle . " by " . $screenuser . "!";
+
+    send_signal($message);
+}

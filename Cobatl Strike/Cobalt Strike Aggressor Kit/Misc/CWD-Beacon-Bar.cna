@@ -1,0 +1,133 @@
+#Author: @nickvourd
+#Inspired by https://github.com/mgeeky/cobalt-arsenal of @mariuszbit
+#Original code: https://github.com/mgeeky/cobalt-arsenal/blob/master/cwd-in-beacon-status-bar.cna
+
+global('%OPERATING_BEACONS');
+%OPERATING_BEACONS = %();
+
+beacon_command_register(
+    "cd",
+    "Change directory on host. Use '-' to get back to previous cwd.",
+    "Use: cd [directory]\n\nChange directory on host. Use '-' to get back to previous cwd."
+);
+
+set BEACON_SBAR_LEFT { 
+    local('$targetHost $targetUser $processId $systemArch $pwd $hostColor $beaconArch');
+    $targetHost = $2["computer"];
+    $targetUser = $2["user"];
+    $processId = $2["pid"];
+    $systemArch = $2["arch"];
+    $beaconArch = barch($1);
+    $pwd = %OPERATING_BEACONS[$1]['cwd'];
+    
+    # Set hostname color based on admin status
+    if (-isadmin $1) {
+        $hostColor = "\c4"; # Red for admin
+    } else {
+        $hostColor = "\c3"; # Green for non-admin
+    }
+    
+    return "[" . $hostColor . $targetHost . "\o] - $systemArch | $targetUser | $processId - $beaconArch | \c2 $+ $pwd $+ \o";
+}
+
+set BEACON_SBAR_RIGHT { 
+    local('$note $last');
+    $note = $2["note"];
+    $last = $2["lastf"];
+    return "\c6 $note \cE(last: $+ $[5]last $+ )\o";
+}
+
+on beacon_tasked {
+    local('$pwd $sep');
+    # Suppress "Tasked beacon to print working directory" messages
+    if ($2 ismatch 'pwd.*') {
+        return;
+    }
+
+    if('cd *' iswm $2) {
+        $pwd = substr($2, strlen("cd "));
+        $sep = iff(binfo($1, "os") eq "Windows", "\\", "/");
+
+        if($pwd eq "..") {
+            $pwd = substr(%OPERATING_BEACONS[$1]['cwd'], 0, lindexOf(%OPERATING_BEACONS[$1]['cwd'], $sep));
+            
+            if($pwd eq "..") {
+                return;
+            }
+        }
+        else if($pwd eq ".") {
+            return;
+        }
+        else if((strlen($pwd) >= 2) && (charAt($pwd, 1) ne ":")) {
+            # relative path
+            $pwd = %OPERATING_BEACONS[$1]['cwd'] . $sep . $pwd;
+        }
+
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
+    }
+}
+
+set BEACON_OUTPUT_ALT {
+    local('$pwd');
+    
+    # Handle directory not found errors
+    if ($2 ismatch '.*The system cannot find the path specified.*') {
+        return "\cC[!]\o Directory does not exist\n";
+    }
+
+    if($2 ismatch 'Current directory is (.+)') {
+        $pwd = matched()[0];
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
+        return;
+    }
+
+    # Suppress "Tasked beacon to print working directory" messages
+    if ($2 ismatch 'Tasked beacon to print working directory.*') {
+        return;
+    }
+
+    return "\cC[*]\o $2\n";
+}
+
+on beacon_input {
+    if (["$3" trim] eq "ls" || ["$3" trim] eq "pwd") {
+        %OPERATING_BEACONS[$1]['cwd-use-ls'] = 1;
+    }
+}
+
+on beacon_output_ls {
+    local('$pwd');
+    if(%OPERATING_BEACONS[$1]['cwd-use-ls'] == 1) {
+        $pwd = split("\n", ["$2" trim])[0];
+        if(right($pwd, 2) eq "\\*") {
+            $pwd = substr($pwd, 0, -2);
+        }
+        %OPERATING_BEACONS[$1]['prev-cwd'] = %OPERATING_BEACONS[$1]['cwd'];
+        %OPERATING_BEACONS[$1]['cwd'] = $pwd;
+        %OPERATING_BEACONS[$1]['cwd-use-ls'] = 0;
+    }
+}
+
+on beacons {
+    if(%OPERATING_BEACONS is $null) {
+        %OPERATING_BEACONS = %();
+    }
+    
+    foreach $b ($1) {
+        if(iff($b in keys(%OPERATING_BEACONS), "true", $null)) {
+            %OPERATING_BEACONS[$b] = %();
+            # Initialize working directory
+            %OPERATING_BEACONS[$b]['cwd'] = bpwd($b);
+        }
+    }
+}
+
+alias cd {
+    if(($2 eq "-") && (strlen(%OPERATING_BEACONS[$1]['prev-cwd']) > 0)) {
+        bcd($1, %OPERATING_BEACONS[$1]['prev-cwd']);
+        return;
+    }
+    bcd($1, $2);
+}

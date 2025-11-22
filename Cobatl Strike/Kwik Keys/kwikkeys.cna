@@ -1,0 +1,255 @@
+# 
+
+# Globals, Statics, and Singletons
+global('$DEVDEBUG $__VERSION__ $__AUTHOR__ $__MODEL__');
+$DEVDEBUG = 0;
+$__VERSION__ = "1.0";
+$__VERSIONLEVEL__ = "DUMB";
+$__AUTHOR__ = "SavSanta";
+
+global('$AG $STOPCODE $COMPDB $COMPIDX $ACTIVECSPC $BINPFOC $BINPCONTS $BINPOS');
+$STOPCODE = @(10, 27, 32, 37, 38, 39, 40, 127);
+$AG = getAggressorClient();
+$COMPDB = @();
+$COMPIDX = 0;
+$ACTIVECSPC = 0;
+$BINPCONTS = $null;
+$BINPFOC = $null;
+$BINPOS = 0; 
+
+import java.awt.*;
+import javax.swing.*;
+import console.Activity;
+import java.awt.event.*;
+
+alias cptc {
+
+    show_message("Cobalt Strike Custom Tab Completion Script <$__VERSION__ $__VERSIONLEVEL__ mode > is loaded and running." );   
+}
+
+
+sub run_complete {
+    $sent = $1;
+    $slen = strlen($sent);
+     
+    $comp = db_cycle($COMPIDX);
+   
+    if ($ACTIVECSPC) {
+        
+        $prev = db_cycle($COMPIDX - 1);
+        $last = lindexOf($sent, $prev);
+        $sent = iff($last, left($sent, $last), $sent);
+        if ($DEVDEBUG) {
+            println("\[DEBUG: $__SCRIPT__\] prev: $prev");
+            println("\[DEBUG: $__SCRIPT__\] Last: $last");
+        }
+        
+    }
+    
+    $sent = $sent . $comp;
+    if ($DEVDEBUG) {
+        println("Mods sent: $sent");
+    }
+    return $sent;
+}
+
+sub db_cycle {
+
+   $idx = $1 % size($COMPDB);
+   return $COMPDB[$idx];
+}
+
+
+sub validate_binput {
+    # TODO: Smart Mode Only.
+}
+
+sub check_sentinel {
+    # TODO: Smart Mode Only.
+}
+
+sub adjprep_input {
+
+    $input = $1;    
+    $input = str_rtrim($input);
+    return $input;
+}
+
+
+sub str_ltrim {
+
+    $t = matches($1, '\s*(.*)')[0];
+    return $t;
+}
+
+sub str_rtrim {
+
+    $t = matches($1, '(.*)\s*')[0];
+    return $t;
+}
+
+
+sub get_tab {
+    
+    $actv = [[[$AG getTabManager] getTabbedPane] getSelectedComponent];
+    return $actv;
+
+}
+
+
+sub get_bid {
+    
+    $bid = [get_tab() getBeaconID];
+    return $bid;
+}
+
+
+sub dbg_listn {
+
+    $bid = get_bid();
+
+    update_db();
+
+    blog2($bid, "\cD Listeners Defined\o Mode");
+    blog2($bid, "Local: $list_loc");
+    blog2($bid, "Stageless: $list_sl" );
+    blog2($bid, "Staged: $list");
+    
+    return;
+}
+
+sub update_db {
+
+    if ($DEVDEBUG) {
+        println("\[DEBUG: $__SCRIPT__\] Running Update of \c2Completer Databases.");
+    }
+
+    $listn_loc = listeners_local();
+    $listn_sl = listeners_stageless();
+    $listn = listeners();
+    $targs = @();
+    
+    foreach $item (targets()) {
+       add($targs, $item['address']);
+       add($targs, $item['name']);
+    }
+
+    #addAll($listn, $listn_sl);
+    #addAll($listn, $listn_loc);
+    #$COMPDB = concat($listn, $targs);
+    
+    $COMPDB = @();
+    addAll($COMPDB, $listn_sl);
+    addAll($COMPDB, $listn_loc);
+    addAll($COMPDB, $listn);
+    addAll($COMPDB, $targs);
+    
+    if ($DEVDEBUG) {
+        println("\[DEBUG: $__SCRIPT__\] DB has size: " . size($COMPDB) . " objects.");
+        println($COMPDB);
+    }
+
+}
+
+sub bcli_selectall {
+
+    $tab = get_tab();   
+    $txtfld = [$tab getInput]; 
+    [$txtfld selectAll];
+
+    if ($DEVDEBUG) {
+        println("\[DEBUG: $__SCRIPT__\] Executed BeaconCLI \c3++ Select All ++ Function.");
+        println("\[DEBUG: $__SCRIPT__\] Data Contents: $txtfld\n");
+    }
+
+    return;
+
+}
+
+sub bcli_getbinput {
+
+    $tab = get_tab();
+    $txtfld = [$tab getInput];
+    $text = [[$txtfld getText] toString];
+    $BINPFOC = $txtfld;
+    
+    if ($DEVDEBUG) {
+        println("\[DEBUG: $__SCRIPT__\] Executed BeaconCLI \c6** Get Text ** Function.");
+        println("\[DEBUG: $__SCRIPT__\] Text Contents: $text\n");
+    }
+    
+    return $text;
+}
+
+sub bcli_setbinput {
+
+    $input = $1;
+    [$BINPFOC setText: $input];
+}
+
+
+on heartbeat_15m {
+
+    # Alternative Location To Run Update
+}
+
+sub key_handler {
+			
+   $ev = $1;
+   $code = [$ev getKeyCode];
+
+   # Team America. Fuck Yeah!
+   # Improvement Idea: Utilize first-class passing to remove listeners from where in closed scope.
+   if ($code in $STOPCODE) {
+        $ACTIVECSPC = $null;
+        $BINPCONTS = "";
+        $COMPIDX = 0;
+   }
+}
+
+bind Ctrl+Alt+A {
+    
+    # Improvement Idea: Focus Check. Allow propagation (is possible?).
+    bcli_selectall();
+}
+
+bind Ctrl+Space {
+
+    $mug = adjprep_input(bcli_getbinput());
+
+    if (!$mug) {
+        $ACTIVECSPC = $null;
+        $COMPIDX = 0;
+        return;
+    }
+
+    update_db();
+
+    # If it is null/empty let's pre-set to treat as first iteration.
+    if (!$BINPCONTS) {
+    
+        $BINPCONTS = $mug;
+        $ACTIVECSPC = 1;
+        $COMPIDX += 1;
+    }
+    
+    $tab = get_tab();
+    $txtfld = [$tab getInput];
+    [$txtfld addKeyListener: &key_handler];
+    
+    if ($mug == $BINPCONTS) {
+    
+        $mug = run_complete($mug);
+        $ACTIVECSPC = 1;
+        $COMPIDX += 1;
+        
+    } else {
+    
+
+    }
+    
+    bcli_setbinput($mug);
+    [$txtfld removeKeyListener: &key_handler];
+}
+
+

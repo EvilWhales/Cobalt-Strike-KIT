@@ -1,0 +1,7 @@
+# LogStriker Dependencies
+# No external Python packages required - uses only standard library
+#
+# External system requirements:
+# - OpenSSH client (ssh, scp commands)
+# - SSH config with teamserver entry
+# - SSH key-based authentication to teamserver

@@ -16,3 +16,9 @@ Channel cfs (av/edr/xdr bypass) [Info](https://t.me/cryptfileservice) | follow u
 
 All tools and resources are provided for ethical and legal use only, such as authorized penetration testing and security research. Illegal activities, or any consequences arising from improper application of these tools. Users are solely accountable for ensuring compliance with all applicable laws and regulations.
 
+### Contributing
+Contributions are welcome! If you have ideas for improving configurations or adding new templates, please submit a pull request. Ensure all contributions align with the educational and ethical goals of this project.
+
+### Disclaimer of liability:
+
+To the maximum extent permitted by applicable law, we will not be liable for any indirect, incidental, special, consequential, or punitive damages or any loss of profits or income incurred directly or indirectly, or any loss of data, usage, business reputation, or other non-material damages resulting from (i) your access to this resource and/or inability to access this resource; (ii) any behavior or content of any third party referenced by this resource, including without limitation any defamatory, offensive or illegal behavior of other users or third parties; (iii) any content obtained from this resource.

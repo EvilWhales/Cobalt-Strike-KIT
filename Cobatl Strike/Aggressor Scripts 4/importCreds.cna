@@ -1,0 +1,31 @@
+# author:bakw00ds
+
+# Mass import credentials from sources outside CS
+# Note: The creds list should include one credential entry per line. 
+# Values are comma separated in the order of username, password, realm, source, host.
+# Null fields need to be included as blanks
+# (Ex. "Username,Password,,Source,Host" or "Username,,,Source,")
+
+sub importCreds {
+
+	$dialog = dialog("Import Credentials", %(credlist => ""), lambda({
+		$handle = openf($3['credlist']);
+		@credlistdata = readAll($handle);
+		closef($handle);
+		foreach $1 (@credlistdata){
+			@creds = split(",",$1);
+			credential_add(@creds[0], @creds[1], @creds[2], @creds[3], @creds[4]);
+		};
+		}));
+
+	drow_file($dialog, "credlist", "List of creds:");
+	
+	dbutton_action($dialog, "Ok");
+	
+	dialog_show($dialog);
+
+}
+
+alias importCreds {
+	importCreds();
+}   

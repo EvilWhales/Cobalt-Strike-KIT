@@ -10,7 +10,7 @@
 </i>
 </p>
 
-Web by [Info](https://t.me/cryptfileservice) | follow us on [Twitter](https://twitter.com/EvilWhales) | Discord SERVER xCommunity RProxy LAB the [CFS - CRYPT FILE SERVICE](https://subscord.com/store/1429699829856075869/checkout/3V9ZXyco-ODEz) | Telegram [Contact](https://t.me/EvilWhales) Email [Contact](injectexpdev@proton.me)
+Channel cfs (av/edr/xdr bypass) [Info](https://t.me/cryptfileservice) | follow us on [Twitter](https://twitter.com/EvilWhales) | Discord SERVER xCommunity CFS the [CFS - CRYPT FILE SERVICE](https://subscord.com/store/1429699829856075869/checkout/3V9ZXyco-ODEz) | Telegram [Contact](https://t.me/EvilWhales) Email [Contact](injectexpdev@proton.me)
 
 ### Legal Disclaimer:
 

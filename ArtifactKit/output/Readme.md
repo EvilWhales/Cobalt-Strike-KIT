@@ -1,0 +1,1 @@
+This directory will contain the output from the compile process. You should probably include your artifact.cna in this directory for importing into cobalt strike.

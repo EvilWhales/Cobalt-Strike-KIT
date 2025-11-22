@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30320.27
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "beacon_common", "beacon_common\beacon_common.vcxproj", "{29EB41CE-416E-441D-92ED-2D7728170B4B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "beacon_exe", "beacon_exe\beacon_exe.vcxproj", "{1EFC8DB8-1790-4E8F-BBE2-F38E4F334800}"
+	ProjectSection(ProjectDependencies) = postProject
+		{29EB41CE-416E-441D-92ED-2D7728170B4B} = {29EB41CE-416E-441D-92ED-2D7728170B4B}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "beacon_service", "beacon_service\beacon_service.vcxproj", "{4A8F401B-0DD7-459E-83DE-2C044DE0C311}"
+	ProjectSection(ProjectDependencies) = postProject
+		{29EB41CE-416E-441D-92ED-2D7728170B4B} = {29EB41CE-416E-441D-92ED-2D7728170B4B}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "beacon_dll", "beacon_dll\beacon_dll.vcxproj", "{DCE69ED3-68E2-4036-89DE-B465A25733B9}"
+	ProjectSection(ProjectDependencies) = postProject
+		{29EB41CE-416E-441D-92ED-2D7728170B4B} = {29EB41CE-416E-441D-92ED-2D7728170B4B}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{29EB41CE-416E-441D-92ED-2D7728170B4B}.Release|x64.ActiveCfg = big|x64
+		{29EB41CE-416E-441D-92ED-2D7728170B4B}.Release|x64.Build.0 = big|x64
+		{29EB41CE-416E-441D-92ED-2D7728170B4B}.Release|x86.ActiveCfg = big|Win32
+		{29EB41CE-416E-441D-92ED-2D7728170B4B}.Release|x86.Build.0 = big|Win32
+		{1EFC8DB8-1790-4E8F-BBE2-F38E4F334800}.Release|x64.ActiveCfg = exe_big|x64
+		{1EFC8DB8-1790-4E8F-BBE2-F38E4F334800}.Release|x64.Build.0 = exe_big|x64
+		{1EFC8DB8-1790-4E8F-BBE2-F38E4F334800}.Release|x86.ActiveCfg = exe_small|Win32
+		{1EFC8DB8-1790-4E8F-BBE2-F38E4F334800}.Release|x86.Build.0 = exe_small|Win32
+		{4A8F401B-0DD7-459E-83DE-2C044DE0C311}.Release|x64.ActiveCfg = svc_big|x64
+		{4A8F401B-0DD7-459E-83DE-2C044DE0C311}.Release|x64.Build.0 = svc_big|x64
+		{4A8F401B-0DD7-459E-83DE-2C044DE0C311}.Release|x86.ActiveCfg = svc_big|Win32
+		{4A8F401B-0DD7-459E-83DE-2C044DE0C311}.Release|x86.Build.0 = svc_big|Win32
+		{DCE69ED3-68E2-4036-89DE-B465A25733B9}.Release|x64.ActiveCfg = dll_big|x64
+		{DCE69ED3-68E2-4036-89DE-B465A25733B9}.Release|x64.Build.0 = dll_big|x64
+		{DCE69ED3-68E2-4036-89DE-B465A25733B9}.Release|x86.ActiveCfg = dll_big|Win32
+		{DCE69ED3-68E2-4036-89DE-B465A25733B9}.Release|x86.Build.0 = dll_big|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1F77616D-03D5-44FD-9125-2D3747F52EC7}
+	EndGlobalSection
+EndGlobal

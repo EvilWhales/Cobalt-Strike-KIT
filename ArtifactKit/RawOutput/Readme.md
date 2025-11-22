@@ -1,0 +1,1 @@
+This directory will contain the temporary files from the compile process.

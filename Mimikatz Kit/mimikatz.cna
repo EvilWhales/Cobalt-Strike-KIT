@@ -1,0 +1,6 @@
+set MIMIKATZ_INTERNAL {
+    $mimidllpath = script_resource($1);
+    warn("Loading custom mimikatz dll from: " . $mimidllpath);
+    return $mimidllpath;
+}
+

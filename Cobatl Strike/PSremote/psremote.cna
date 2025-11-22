@@ -1,0 +1,24 @@
+# author REDMED-X
+
+beacon_command_register(
+    "psremote", "List all running processes on a remote host.",
+    "INFO:\nGet a list of all processes running on the remote host.\n\n" .
+    "USAGE:\npsremote <FQDN or IP remote host>\n\n");
+
+
+alias psremote {
+    $bid = $1;
+    $remotehost = $2;
+
+    # read in the right BOF file
+    $handle = openf(script_resource("psremote.o"));
+    $data = readb($handle, -1);
+    closef($handle);
+
+    # pack our arguments
+    $arg_data = bof_pack($bid, "z", $remotehost);
+
+    blog($bid, "Tasked to list running processes..");
+    beacon_inline_execute($bid, $data, "go", $arg_data);
+}
+

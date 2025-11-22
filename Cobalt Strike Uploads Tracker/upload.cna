@@ -1,0 +1,276 @@
+#Define global vars
+global('@files $captureoutput $uploadtracker');
+$uploadtracker = cwd() . "/uploadedfiles.txt";
+$captureoutput = 0;
+
+#On initial load, check for/create file to store file upload data
+if(!-exists $uploadtracker)
+{
+    createNewFile($uploadtracker);
+
+    if (checkError($error))
+    {
+        show_error("Could not locate or create upload tracker file (specified as " . $uploadtracker . ")! Try manually creating this file and then re-load this CNA!")
+        exit();
+    }
+    else
+    {
+        println("Successfully located " . $uploadtracker . "!")
+    }
+}
+else
+{
+    #Read in uploads file to create array on startup
+    $handle = openf($uploadtracker);
+    while $text (readln($handle)) 
+    {
+        add(@files, $text, -1);
+    }
+    closef($handle);
+    println("Successfully located " . $uploadtracker . "!")
+}
+
+
+
+beacon_command_register(
+"upload", 
+"Upload a file", 
+"
+Usage:
+    upload              This will open a file explorer and allow the operator to select a file for upload
+    upload <file>       This will upload the file specified by the operator providing the file exists
+
+Notes:
+    Custom implementation of Cobaltstrike upload command.
+    Will upload a file as per normal upload command but also log the upload to an external file.
+    Will run pwd in order to determine current working directory that file was uploaded to.
+"
+);
+
+
+
+beacon_command_register(
+"viewuploads", 
+"View information about all files uploaded via this cobaltstrike client, option to add additional records", 
+"
+Usage:
+    viewuploads                                                             View the current uploads table 
+    viewuploads add <target ip> <target file path> <local file path>        Manually add an entry to the uploads table
+    viewuploads delete <entry #>                                            Manually delete an entry from the uploads table
+
+Example:
+    viewuploads
+    viewuploads add 192.168.1.15 c:\windows\system32\mymalware.exe /home/kali/mymalware.exe
+    viewuploads delete 3
+
+Notes:
+    The viewuploads command will display a table containing all of the files uploaded to a target through a beacon via the upload command.
+    Upload.cna will call md5sum on the host OS in order to retrieve the MD5 hash of the uploaded file.
+    Each time the upload command is used the table is output to a log file 'uploadedfiles.txt' in the CobaltStrike directory.
+    When the upload.cna script is loaded it will ingest this log file to populate the table in memory so that no data is lost should the client close
+
+    The 'add' modifier may be used with viewuploads to manually add a new upload record.
+    This may be useful during lateral movement when moving a file that has already been uploaded to one machine to a different machine in the target network without use of the upload command.
+
+    The 'delete' modifier may be used with viewuploads to manually delete an upload record.
+    Use the baseline viewuploads command to retrieve the uploads table and identify the entry number of the record you wish to delete
+    This may be useful during cleanup in order to keep an up-to-date table of which files still exist on disk.
+"
+);
+
+
+
+#This function handles the actual upload of file to target as well as tracking of uploads
+sub uploadfile {
+    $captureoutput = 1;
+    $localfile = $1;
+    $bid = $2;
+    $cwd = "";
+    $ip = "";
+    $time = "";
+    $remotefilename = "";
+
+    #Retrieive internal IP of target that beacon is running on
+    foreach $entry (beacons()) 
+    {
+        if($entry['id'] eq $bid)
+        {
+            $ip = $entry['internal'];
+        }
+    }
+
+    #Use built-in hooks to upload file and call pwd to retrieve current directory for use in script
+    bupload($bid, $localfile);
+    bpwd($bid);
+
+    #If we receive a beacon error message and $captureoutput == true, we are in uploadfile sub and got an access denied from trying to upload.  
+    #Set $captureoutput to false so that we don't add the attempted upload to upload table
+    on beacon_error
+    {
+        if($1 eq $bid && $captureoutput && $2 hasmatch 'could not upload file')
+        {
+            $captureoutput = 0;
+        }
+    }
+
+    #Wait for output from beacon in order to proceed
+    on beacon_output_alt
+    {
+        if($1 eq $bid && $captureoutput)
+        {
+            #retrieve remote file name by splitting file name from upload path (since bupload doesn't let you rename as part of the command) 
+            $remotefilename = split("/", $localfile, 50)[-1];
+
+            #retrieve cwd by splitting beacon output from bpwd command. 5 is arbitrary, just picked a large enough number to ensure we can parse.
+            $cwd = split("is ", $2, 5)[-1];
+
+            #retrieve time file was uploaded + format to date/time
+            $time = tstamp($3);
+
+            #run md5sum on host machine against uploaded file in order to retrieve hash of file
+            $hashcommand = exec("md5sum " . $localfile);
+            $rawoutput = readln($hashcommand);
+            $filehash = split(" ",$rawoutput, 2)[0];
+
+            #format log string
+            $formattedstring = "$[15]time $[25]ip $[70]cwd $[25]remotefilename $[70]localfile $filehash";
+
+            #add new log entry to array of all uploads
+            add(@files, $formattedstring, -1);
+
+            #open $uploadtracker file and write array out to file to ensure we don't lose data if CS crashes
+            $handle = openf(">" . $uploadtracker);
+            foreach $log (@files)
+            {
+                println($handle, $log);
+            }
+            closef($handle);
+
+            #set $captureoutput to false so that beacon_output_alt doesn't continue to fire/collect when it shouldn't
+            $captureoutput = 0;
+        }
+    }
+}
+
+
+
+alias upload
+{
+    $bid = $1;
+    if(size(@_) == 1)
+    {
+        prompt_file_open("Choose a file", $null, false, {
+            uploadfile($1, $bid);
+        });
+    }
+    else if(size(@_) == 2)
+    {
+        if(!-exists $uploadtracker)
+        {
+            berror($1, "The specified file '" . $2 . "' does not seem to exist!");
+            exit();
+        }
+        uploadfile($2, $bid)
+    }
+    else
+    {
+        berror($1, "Incorrect usage!");
+		berror($1, beacon_command_detail("upload"));
+		return;
+    }
+}
+
+
+
+alias viewuploads
+{
+    if(size(@_) == 1)
+    {
+        $count = 1;
+        $entry = "Entry";
+        $head0 = "Upload Time";
+        $head1 = "Target Internal IP";
+        $head2 = "Upload Directory";
+        $head3 = "Remote File Name";
+        $head4 = "Uploaded File";
+        $head5 = "MD5 Hash";
+
+        #print header for output
+        blog($1, "$[6]entry $[15]head0 $[25]head1 $[70]head2 $[25]head3 $[70]head4 $head5");
+        blog($1, "-" x 236)
+
+        foreach $item (@files)
+        {
+            blog2($1, "$[6]count $item");
+            $count += 1;
+        }
+    }
+    else if($2 eq "add")
+    {
+        #populate ip and localfile fields from args
+        $ip = $3;
+        $localfile = $5;
+
+        if(!-exists $localfile)
+        {
+            berror($1, "The local file '" . $localfile . "' does not seem to exist; provide a valid local file so a MD5 hash may be generated and logged!");
+            exit();
+        }
+
+        #split out cwd and remotefilename from arg 4
+        $temp = strrep($4, "\\", " ");
+        $remotefilename = split(" ",$temp, 50)[-1];
+        $cwd = left($4, (strlen($4) - strlen($remotefilename)) - 1);
+
+        #run md5sum on host machine against uploaded file in order to retrieve hash of file
+        $hashcommand = exec("md5sum " . $localfile);
+        $rawoutput = readln($hashcommand);
+        $filehash = split(" ",$rawoutput, 2)[0];
+
+        $time = tstamp(ticks());
+
+        #format log string
+        $formattedstring = "$[15]time $[25]ip $[70]cwd $[25]remotefilename $[70]localfile $filehash";
+
+        #add new log entry to array of all uploads
+        add(@files, $formattedstring, -1);
+
+        #open $uploadtracker file and write array out to file to ensure we don't lose data if CS crashes
+        $handle = openf(">" . $uploadtracker);
+        foreach $log (@files)
+        {
+            println($handle, $log);
+        }
+        closef($handle);
+
+        #write message to console
+        blog($1, "Added entry to uploaded files list for target " . $ip . "\n");
+    }
+    else if($2 eq "delete")
+    {
+        if($3 > size(@files))
+        {
+            berror($1, "Entry " . $3 . " doesn't seem to exist!");
+            exit();
+        }
+        $targetlog = @files[$3 - 1];
+        remove(@files, $targetlog);
+
+        #open $uploadtracker file and write array out to file to ensure we don't lose data if CS crashes
+        $handle = openf(">" . $uploadtracker);
+        foreach $log (@files)
+        {
+            println($handle, $log);
+        }
+        closef($handle);
+
+        #write message to console
+        blog($1, "Removed entry " . $3 . " from upload log");
+    }
+    else
+    {
+        berror($1, "Incorrect usage!");
+		berror($1, beacon_command_detail("viewuploads"));
+		exit();
+    }
+}

